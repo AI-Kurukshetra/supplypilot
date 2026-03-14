@@ -1,24 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+
+import { NotificationFeed } from "@/components/app/notification-feed";
 import type { NotificationRecord } from "@/lib/domain/types";
-
-function formatNotificationTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date
-    .toISOString()
-    .replace("T", " ")
-    .slice(0, 16)
-    .concat(" UTC");
-}
-
-function formatChannelLabel(channel: NotificationRecord["channel"]) {
-  return channel === "in_app" ? "In-app" : "Email";
-}
 
 export function NotificationMenu({
   unreadNotifications,
@@ -97,32 +82,10 @@ export function NotificationMenu({
           </div>
 
           <div className="mt-4 max-h-[24rem] space-y-3 overflow-y-auto pr-1">
-            {items.length ? (
-              items.map((item) => (
-                <article
-                  key={item.id}
-                  className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)] p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--foreground)]">{item.title}</p>
-                      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.body}</p>
-                    </div>
-                    {!item.readAt ? (
-                      <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--accent-strong)]" />
-                    ) : null}
-                  </div>
-                  <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)]">
-                    <span>{formatChannelLabel(item.channel)}</span>
-                    <span>{formatNotificationTime(item.createdAt)}</span>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="rounded-[22px] border border-dashed border-[var(--border-strong)] bg-[var(--surface-strong)] p-5 text-sm text-[var(--muted)]">
-                No notifications available right now.
-              </div>
-            )}
+            <NotificationFeed
+              items={items}
+              compact
+            />
           </div>
         </div>
       ) : null}

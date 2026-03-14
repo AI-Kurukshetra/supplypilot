@@ -1,33 +1,32 @@
 import Link from "next/link";
 
+import { FlashMessage } from "@/components/app/flash-message";
 import { requireAppContext } from "@/lib/auth/session";
 import { FilterBar } from "@/components/app/filter-bar";
 import { PageHeader } from "@/components/app/page-header";
 import { RiskBadge, ShipmentStatusBadge } from "@/components/app/status-badge";
 import { demoData } from "@/lib/domain/demo-data";
 import { getShipmentList, getShipmentSearchSuggestions } from "@/lib/domain/queries";
+import { getFlashState, getSearchParam } from "@/lib/search-params";
 import { formatDateTime } from "@/lib/utils";
 
 type SearchProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function getSingleValue(value: string | string[] | undefined) {
-  return typeof value === "string" ? value : undefined;
-}
-
 export default async function ShipmentsPage({ searchParams }: SearchProps) {
   const params = await searchParams;
   const context = await requireAppContext();
+  const flash = getFlashState(params);
   const [list, searchSuggestions] = await Promise.all([
     getShipmentList({
-      query: getSingleValue(params.query),
-      status: (getSingleValue(params.status) as typeof demoData.shipments[number]["status"] | "all" | undefined) ?? "all",
-      risk: (getSingleValue(params.risk) as typeof demoData.shipments[number]["riskLevel"] | "all" | undefined) ?? "all",
-      customerId: getSingleValue(params.customerId) ?? "all",
-      carrierId: getSingleValue(params.carrierId) ?? "all",
-      dateRange: (getSingleValue(params.dateRange) as "today" | "7d" | "30d" | "90d" | "all" | undefined) ?? "all",
-      page: Number(getSingleValue(params.page) ?? "1"),
+      query: getSearchParam(params.query),
+      status: (getSearchParam(params.status) as typeof demoData.shipments[number]["status"] | "all" | undefined) ?? "all",
+      risk: (getSearchParam(params.risk) as typeof demoData.shipments[number]["riskLevel"] | "all" | undefined) ?? "all",
+      customerId: getSearchParam(params.customerId) ?? "all",
+      carrierId: getSearchParam(params.carrierId) ?? "all",
+      dateRange: (getSearchParam(params.dateRange) as "today" | "7d" | "30d" | "90d" | "all" | undefined) ?? "all",
+      page: Number(getSearchParam(params.page) ?? "1"),
     }),
     getShipmentSearchSuggestions({ limit: 12 }),
   ]);
@@ -50,50 +49,43 @@ export default async function ShipmentsPage({ searchParams }: SearchProps) {
         }
       />
 
-      {getSingleValue(params.message) ? (
-        <section
-          className={
-            getSingleValue(params.status) === "error"
-              ? "rounded-[24px] border border-[color:rgba(194,74,47,0.25)] bg-[color:rgba(194,74,47,0.08)] px-4 py-3 text-sm text-[color:#c24a2f]"
-              : "rounded-[24px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--foreground)]"
-          }
-        >
-          {getSingleValue(params.message)}
-        </section>
-      ) : null}
+      <FlashMessage
+        status={flash.status}
+        message={flash.message}
+      />
 
       <FilterBar
-        searchDefaultValue={getSingleValue(params.query)}
+        searchDefaultValue={getSearchParam(params.query)}
         searchSuggestions={searchSuggestions}
         filters={[
           {
             name: "status",
             label: "Status",
-            selectedValue: getSingleValue(params.status) ?? "all",
+            selectedValue: getSearchParam(params.status) ?? "all",
             options: [{ label: "All statuses", value: "all" }, ...["planned", "booked", "in_transit", "at_hub", "out_for_delivery", "delayed", "delivered", "exception"].map((value) => ({ label: value.replaceAll("_", " "), value }))],
           },
           {
             name: "risk",
             label: "Risk",
-            selectedValue: getSingleValue(params.risk) ?? "all",
+            selectedValue: getSearchParam(params.risk) ?? "all",
             options: [{ label: "All risk", value: "all" }, ...["low", "medium", "high", "critical"].map((value) => ({ label: value, value }))],
           },
           {
             name: "customerId",
             label: "Customer",
-            selectedValue: getSingleValue(params.customerId) ?? "all",
+            selectedValue: getSearchParam(params.customerId) ?? "all",
             options: [{ label: "All customers", value: "all" }, ...demoData.customers.map((item) => ({ label: item.name, value: item.id }))],
           },
           {
             name: "carrierId",
             label: "Carrier",
-            selectedValue: getSingleValue(params.carrierId) ?? "all",
+            selectedValue: getSearchParam(params.carrierId) ?? "all",
             options: [{ label: "All carriers", value: "all" }, ...demoData.carriers.map((item) => ({ label: item.name, value: item.id }))],
           },
           {
             name: "dateRange",
             label: "Date range",
-            selectedValue: getSingleValue(params.dateRange) ?? "all",
+            selectedValue: getSearchParam(params.dateRange) ?? "all",
             options: [
               { label: "All", value: "all" },
               { label: "Today", value: "today" },

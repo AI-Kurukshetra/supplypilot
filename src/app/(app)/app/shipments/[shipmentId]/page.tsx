@@ -2,11 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { deleteShipmentAction } from "@/app/(app)/app/shipments/actions";
+import { FlashMessage } from "@/components/app/flash-message";
 import { EventFeed, MilestoneTimeline } from "@/components/app/timeline";
 import { ExceptionStatusBadge, ExceptionTypeBadge, RiskBadge, ShipmentStatusBadge } from "@/components/app/status-badge";
 import { PageHeader } from "@/components/app/page-header";
 import { requireAppContext } from "@/lib/auth/session";
 import { getShipmentDetail } from "@/lib/domain/queries";
+import { getFlashState } from "@/lib/search-params";
 import { formatDateTime } from "@/lib/utils";
 
 type ShipmentDetailProps = {
@@ -14,14 +16,11 @@ type ShipmentDetailProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function getSingleValue(value: string | string[] | undefined) {
-  return typeof value === "string" ? value : undefined;
-}
-
 export default async function ShipmentDetailPage({ params, searchParams }: ShipmentDetailProps) {
   const { shipmentId } = await params;
   const context = await requireAppContext();
   const [detail, query] = await Promise.all([getShipmentDetail(shipmentId), searchParams]);
+  const flash = getFlashState(query);
 
   if (!detail) {
     notFound();
@@ -58,17 +57,10 @@ export default async function ShipmentDetailPage({ params, searchParams }: Shipm
         }
       />
 
-      {getSingleValue(query.message) ? (
-        <section
-          className={
-            getSingleValue(query.status) === "error"
-              ? "rounded-[24px] border border-[color:rgba(194,74,47,0.25)] bg-[color:rgba(194,74,47,0.08)] px-4 py-3 text-sm text-[color:#c24a2f]"
-              : "rounded-[24px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--foreground)]"
-          }
-        >
-          {getSingleValue(query.message)}
-        </section>
-      ) : null}
+      <FlashMessage
+        status={flash.status}
+        message={flash.message}
+      />
 
       <section className="grid gap-4 xl:grid-cols-5">
         <article className="rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-5 xl:col-span-2">

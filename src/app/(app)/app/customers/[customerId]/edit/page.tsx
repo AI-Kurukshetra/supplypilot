@@ -4,15 +4,12 @@ import { updateCustomerAction } from "@/app/(app)/app/customers/actions";
 import { CustomerEditorPage } from "@/components/customers/customer-editor-page";
 import { requireAppContext } from "@/lib/auth/session";
 import { getCrudRecordById } from "@/lib/crud/service";
+import { getFlashState } from "@/lib/search-params";
 
 type EditCustomerPageProps = {
   params: Promise<{ customerId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-function getSingleValue(value: string | string[] | undefined) {
-  return typeof value === "string" ? value : undefined;
-}
 
 export default async function EditCustomerPage({ params, searchParams }: EditCustomerPageProps) {
   const context = await requireAppContext();
@@ -25,6 +22,7 @@ export default async function EditCustomerPage({ params, searchParams }: EditCus
     getCrudRecordById("customers", customerId, context.organization.id),
     searchParams,
   ]);
+  const flash = getFlashState(query);
 
   if (!customerRecord) {
     notFound();
@@ -36,8 +34,8 @@ export default async function EditCustomerPage({ params, searchParams }: EditCus
     <CustomerEditorPage
       title={`Edit ${String(customerRecord.name)}`}
       description="Update customer identity, segment, and primary contact details."
-      status={getSingleValue(query.status)}
-      message={getSingleValue(query.message)}
+      status={flash.status}
+      message={flash.message}
       submitLabel="Save customer"
       action={action}
       defaults={customerRecord}

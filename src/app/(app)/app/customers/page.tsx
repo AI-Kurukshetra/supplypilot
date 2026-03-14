@@ -1,21 +1,20 @@
 import Link from "next/link";
 
 import { deleteCustomerAction } from "@/app/(app)/app/customers/actions";
+import { FlashMessage } from "@/components/app/flash-message";
 import { PageHeader } from "@/components/app/page-header";
 import { requireAppContext } from "@/lib/auth/session";
 import { getCustomersData } from "@/lib/domain/queries";
+import { getFlashState } from "@/lib/search-params";
 
 type SearchProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function getSingleValue(value: string | string[] | undefined) {
-  return typeof value === "string" ? value : undefined;
-}
-
 export default async function CustomersPage({ searchParams }: SearchProps) {
   const params = await searchParams;
   const context = await requireAppContext();
+  const flash = getFlashState(params);
   const customers = await getCustomersData();
   const canManageCustomers = ["org_admin", "ops_manager"].includes(context.member.role);
 
@@ -37,17 +36,10 @@ export default async function CustomersPage({ searchParams }: SearchProps) {
         }
       />
 
-      {getSingleValue(params.message) ? (
-        <section
-          className={
-            getSingleValue(params.status) === "error"
-              ? "rounded-[24px] border border-[color:rgba(194,74,47,0.25)] bg-[color:rgba(194,74,47,0.08)] px-4 py-3 text-sm text-[color:#c24a2f]"
-              : "rounded-[24px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--foreground)]"
-          }
-        >
-          {getSingleValue(params.message)}
-        </section>
-      ) : null}
+      <FlashMessage
+        status={flash.status}
+        message={flash.message}
+      />
 
       <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {customers.map((customer) => (

@@ -1,4 +1,4 @@
-import { formatDateTime } from "@/lib/utils";
+import { NotificationFeed } from "@/components/app/notification-feed";
 import type { NotificationRecord } from "@/lib/domain/types";
 
 export function NotificationCenter({
@@ -24,25 +24,7 @@ export function NotificationCenter({
         </span>
       </div>
       <div className="mt-4 space-y-3">
-        {items.slice(0, 5).map((item) => (
-          <article
-            key={item.id}
-            className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)] p-4"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-[var(--foreground)]">{item.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.body}</p>
-              </div>
-              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
-                {item.readAt ? "Read" : "Unread"}
-              </span>
-            </div>
-            <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
-              {formatDateTime(item.createdAt)}
-            </p>
-          </article>
-        ))}
+        <NotificationFeed items={items.slice(0, 5)} />
       </div>
     </section>
   );

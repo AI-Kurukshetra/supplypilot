@@ -4,15 +4,12 @@ import { updateShipmentAction } from "@/app/(app)/app/shipments/actions";
 import { ShipmentEditorPage } from "@/components/shipments/shipment-editor-page";
 import { requireAppContext } from "@/lib/auth/session";
 import { getCrudOptionSets, getCrudRecordById } from "@/lib/crud/service";
+import { getFlashState } from "@/lib/search-params";
 
 type EditShipmentPageProps = {
   params: Promise<{ shipmentId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-function getSingleValue(value: string | string[] | undefined) {
-  return typeof value === "string" ? value : undefined;
-}
 
 export default async function EditShipmentPage({ params, searchParams }: EditShipmentPageProps) {
   const context = await requireAppContext();
@@ -26,6 +23,7 @@ export default async function EditShipmentPage({ params, searchParams }: EditShi
     getCrudRecordById("shipments", shipmentId, context.organization.id),
     searchParams,
   ]);
+  const flash = getFlashState(query);
 
   if (!shipmentRecord) {
     notFound();
@@ -37,8 +35,8 @@ export default async function EditShipmentPage({ params, searchParams }: EditShi
     <ShipmentEditorPage
       title={`Edit ${String(shipmentRecord.shipment_reference)}`}
       description="Update shipment planning, route, and timing fields."
-      status={getSingleValue(query.status)}
-      message={getSingleValue(query.message)}
+      status={flash.status}
+      message={flash.message}
       submitLabel="Save shipment"
       action={action}
       optionSets={optionSets}

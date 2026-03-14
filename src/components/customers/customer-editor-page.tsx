@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { FlashMessage } from "@/components/app/flash-message";
 import { PageHeader } from "@/components/app/page-header";
 import { CrudForm } from "@/components/crud/crud-form";
 import { getCrudEntityConfig } from "@/lib/crud/config";
@@ -41,17 +42,11 @@ export function CustomerEditorPage({
         }
       />
 
-      {message ? (
-        <section
-          className={
-            status === "error"
-              ? "rounded-[28px] border border-[color:rgba(194,74,47,0.25)] bg-[color:rgba(194,74,47,0.08)] p-5 text-sm text-[color:#c24a2f]"
-              : "rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-5 text-sm text-[var(--foreground)]"
-          }
-        >
-          {message}
-        </section>
-      ) : null}
+      <FlashMessage
+        status={status}
+        message={message}
+        className="rounded-[28px] p-5"
+      />
 
       <section className="rounded-[32px] border border-[var(--border)] bg-[var(--surface)] p-5">
         <CrudForm

@@ -1,20 +1,18 @@
 import Link from "next/link";
 
 import { createCrudRecordAction } from "@/app/(app)/app/settings/data/actions";
+import { FlashMessage } from "@/components/app/flash-message";
 import { PageHeader } from "@/components/app/page-header";
 import { CrudEntityInsights } from "@/components/crud/crud-entity-insights";
 import { CrudEntityNav } from "@/components/crud/crud-entity-nav";
 import { CrudForm } from "@/components/crud/crud-form";
 import { CrudRecordList } from "@/components/crud/crud-record-list";
 import { getDefaultCrudEntity, getCrudWorkspaceData } from "@/lib/crud/service";
+import { getFlashState, getSearchParam } from "@/lib/search-params";
 
 type SearchProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-function getSingleValue(value: string | string[] | undefined) {
-  return typeof value === "string" ? value : undefined;
-}
 
 function getSingularLabel(label: string) {
   if (label.endsWith("ies")) {
@@ -30,9 +28,8 @@ function getSingularLabel(label: string) {
 
 export default async function CrudWorkspacePage({ searchParams }: SearchProps) {
   const params = await searchParams;
-  const entityName = getDefaultCrudEntity(getSingleValue(params.entity));
-  const status = getSingleValue(params.status);
-  const message = getSingleValue(params.message);
+  const entityName = getDefaultCrudEntity(getSearchParam(params.entity));
+  const flash = getFlashState(params);
   const result = await loadCrudWorkspace(entityName);
 
   if ("error" in result) {
@@ -79,17 +76,11 @@ export default async function CrudWorkspacePage({ searchParams }: SearchProps) {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">{entity.description}</p>
           </div>
 
-          {message ? (
-            <div
-              className={
-                status === "error"
-                  ? "rounded-[22px] border border-[color:rgba(194,74,47,0.25)] bg-[color:rgba(194,74,47,0.08)] px-4 py-3 text-sm text-[color:#c24a2f]"
-                  : "rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--foreground)]"
-              }
-            >
-              {message}
-            </div>
-          ) : null}
+          <FlashMessage
+            status={flash.status}
+            message={flash.message}
+            className="rounded-[22px] bg-[var(--surface-strong)]"
+          />
         </div>
 
         <CrudEntityNav activeEntity={entity.name} />

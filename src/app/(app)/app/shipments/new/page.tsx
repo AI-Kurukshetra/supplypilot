@@ -4,14 +4,11 @@ import { createShipmentAction } from "@/app/(app)/app/shipments/actions";
 import { ShipmentEditorPage } from "@/components/shipments/shipment-editor-page";
 import { requireAppContext } from "@/lib/auth/session";
 import { getCrudOptionSets } from "@/lib/crud/service";
+import { getFlashState } from "@/lib/search-params";
 
 type SearchProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-function getSingleValue(value: string | string[] | undefined) {
-  return typeof value === "string" ? value : undefined;
-}
 
 export default async function NewShipmentPage({ searchParams }: SearchProps) {
   const context = await requireAppContext();
@@ -21,13 +18,14 @@ export default async function NewShipmentPage({ searchParams }: SearchProps) {
 
   const optionSets = await getCrudOptionSets(context.organization.id);
   const params = await searchParams;
+  const flash = getFlashState(params);
 
   return (
     <ShipmentEditorPage
       title="Create shipment"
       description="Add a shipment record tied to the current organization and route plan."
-      status={getSingleValue(params.status)}
-      message={getSingleValue(params.message)}
+      status={flash.status}
+      message={flash.message}
       submitLabel="Create shipment"
       action={createShipmentAction}
       optionSets={optionSets}

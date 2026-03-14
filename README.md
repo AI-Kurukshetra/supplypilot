@@ -20,6 +20,15 @@ SupplyPilot is a production-minded SaaS scaffold for supply chain visibility and
 - Supabase schema, RLS policies, Storage bucket setup, and SQL seed file
 - Resend notification plumbing
 
+## Architecture notes
+
+- `src/lib/domain`: typed domain models, demo data, and query functions that keep page code thin
+- `src/lib/crud`: reusable entity configuration and data-access helpers for the admin workspace
+- `src/components/app`: app-shell primitives such as header, navigation, flash messaging, notifications, and operational UI
+- `src/lib/search-params.ts`: shared search-param parsing for route-level status/message handling
+
+The codebase is organized so that pages focus on composition, while domain logic and reusable UI stay in dedicated layers.
+
 ## Local development
 
 1. Install dependencies:
