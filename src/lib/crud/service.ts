@@ -297,6 +297,15 @@ function parseFieldValue(formData: FormData, field: (typeof crudEntityConfigs)[C
   }
 
   switch (field.type) {
+    case "email": {
+      const normalized = trimmed.toLowerCase();
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(normalized)) {
+        throw new Error(`${field.label} must be a valid email address.`);
+      }
+
+      return normalized;
+    }
     case "number": {
       const parsed = Number(trimmed);
       if (Number.isNaN(parsed)) {

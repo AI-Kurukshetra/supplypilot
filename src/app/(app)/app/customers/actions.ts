@@ -35,9 +35,13 @@ export async function createCustomerAction(formData: FormData) {
           contactEmail: String(createdCustomer.contact_email ?? ""),
         });
 
-        successMessage = emailResult && "skipped" in emailResult && emailResult.skipped
-          ? "Customer added successfully. Email was not sent because contact email or Resend is not configured."
-          : "Customer added successfully. Email sent to the customer contact.";
+        if (emailResult && "skipped" in emailResult && emailResult.skipped) {
+          successMessage = emailResult.reason === "Missing Resend credentials"
+            ? "Customer added successfully. Email was not sent because Resend is not configured."
+            : "Customer added successfully. Email was not sent because the customer contact email is missing.";
+        } else {
+          successMessage = "Customer added successfully. Email sent to the customer contact.";
+        }
       } catch {
         successMessage = "Customer added successfully. Email delivery failed.";
       }

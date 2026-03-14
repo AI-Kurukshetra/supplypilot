@@ -20,11 +20,17 @@ export async function sendNotificationEmail(input: SendNotificationInput) {
   const { resendApiKey, resendFromEmail } = requireResendEnv();
   const resend = new Resend(resendApiKey);
 
-  return resend.emails.send({
+  const result = await resend.emails.send({
     from: resendFromEmail,
     to: input.to,
     subject: input.subject,
     html: input.html,
     text: input.preview,
   });
+
+  if ("error" in result && result.error) {
+    throw new Error(result.error.message || "Resend email delivery failed.");
+  }
+
+  return result;
 }

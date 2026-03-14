@@ -16,6 +16,7 @@ export type CrudEntityName =
 
 export type CrudFieldType =
   | "text"
+  | "email"
   | "textarea"
   | "number"
   | "datetime-local"
@@ -179,7 +180,7 @@ export const crudEntityConfigs: Record<CrudEntityName, CrudEntityConfig> = {
       { key: "code", label: "Code", type: "text", required: true },
       { key: "segment", label: "Segment", type: "text", required: true },
       { key: "contact_name", label: "Contact name", type: "text" },
-      { key: "contact_email", label: "Contact email", type: "text" },
+      { key: "contact_email", label: "Contact email", type: "email", required: true, helperText: "Used for SupplyPilot customer notifications and portal updates." },
     ],
   },
   carriers: {
