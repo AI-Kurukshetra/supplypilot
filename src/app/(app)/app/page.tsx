@@ -18,7 +18,7 @@ export default async function DashboardPage() {
         actions={
           <Link
             href="/app/shipments"
-            className="inline-flex h-11 items-center justify-center rounded-2xl bg-[var(--foreground)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)] shadow-[0_12px_30px_-18px_var(--shadow-color)] transition hover:-translate-y-0.5 hover:bg-[var(--surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
           >
             View shipments
           </Link>

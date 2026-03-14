@@ -20,11 +20,12 @@ export async function createCrudRecordAction(entityName: CrudEntityName, formDat
   try {
     await createCrudRecord(entityName, formData);
     revalidatePath("/app/settings/data");
-    redirect(buildRedirectUrl(entityName, "success", "Record created."));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create record.";
     redirect(buildRedirectUrl(entityName, "error", message));
   }
+
+  redirect(buildRedirectUrl(entityName, "success", "Record created."));
 }
 
 export async function updateCrudRecordAction(
@@ -35,20 +36,22 @@ export async function updateCrudRecordAction(
   try {
     await updateCrudRecord(entityName, recordId, formData);
     revalidatePath("/app/settings/data");
-    redirect(buildRedirectUrl(entityName, "success", "Record updated."));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to update record.";
     redirect(buildRedirectUrl(entityName, "error", message));
   }
+
+  redirect(buildRedirectUrl(entityName, "success", "Record updated."));
 }
 
 export async function deleteCrudRecordAction(entityName: CrudEntityName, recordId: string) {
   try {
     await deleteCrudRecord(entityName, recordId);
     revalidatePath("/app/settings/data");
-    redirect(buildRedirectUrl(entityName, "success", "Record deleted."));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to delete record.";
     redirect(buildRedirectUrl(entityName, "error", message));
   }
+
+  redirect(buildRedirectUrl(entityName, "success", "Record deleted."));
 }

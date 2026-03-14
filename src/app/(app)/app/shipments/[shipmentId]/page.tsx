@@ -1,22 +1,34 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { deleteShipmentAction } from "@/app/(app)/app/shipments/actions";
 import { EventFeed, MilestoneTimeline } from "@/components/app/timeline";
 import { ExceptionStatusBadge, ExceptionTypeBadge, RiskBadge, ShipmentStatusBadge } from "@/components/app/status-badge";
 import { PageHeader } from "@/components/app/page-header";
+import { requireAppContext } from "@/lib/auth/session";
 import { getShipmentDetail } from "@/lib/domain/queries";
 import { formatDateTime } from "@/lib/utils";
 
 type ShipmentDetailProps = {
   params: Promise<{ shipmentId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function ShipmentDetailPage({ params }: ShipmentDetailProps) {
+function getSingleValue(value: string | string[] | undefined) {
+  return typeof value === "string" ? value : undefined;
+}
+
+export default async function ShipmentDetailPage({ params, searchParams }: ShipmentDetailProps) {
   const { shipmentId } = await params;
-  const detail = await getShipmentDetail(shipmentId);
+  const context = await requireAppContext();
+  const [detail, query] = await Promise.all([getShipmentDetail(shipmentId), searchParams]);
 
   if (!detail) {
     notFound();
   }
+
+  const deleteAction = deleteShipmentAction.bind(null, shipmentId);
+  const isOrgAdmin = context.member.role === "org_admin";
 
   return (
     <>
@@ -24,7 +36,39 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailProps
         eyebrow="Shipment detail"
         title={detail.shipment.shipmentReference}
         description={detail.shipment.summary}
+        actions={
+          isOrgAdmin ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href={`/app/shipments/${shipmentId}/edit`}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)] shadow-[0_12px_30px_-18px_var(--shadow-color)] transition hover:-translate-y-0.5 hover:bg-[var(--surface)]"
+              >
+                Edit shipment
+              </Link>
+              <form action={deleteAction}>
+                <button
+                  type="submit"
+                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-[color:rgba(194,74,47,0.25)] bg-[color:rgba(194,74,47,0.08)] px-4 text-sm font-semibold text-[color:#c24a2f] transition hover:bg-[color:rgba(194,74,47,0.14)]"
+                >
+                  Delete shipment
+                </button>
+              </form>
+            </div>
+          ) : null
+        }
       />
+
+      {getSingleValue(query.message) ? (
+        <section
+          className={
+            getSingleValue(query.status) === "error"
+              ? "rounded-[24px] border border-[color:rgba(194,74,47,0.25)] bg-[color:rgba(194,74,47,0.08)] px-4 py-3 text-sm text-[color:#c24a2f]"
+              : "rounded-[24px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--foreground)]"
+          }
+        >
+          {getSingleValue(query.message)}
+        </section>
+      ) : null}
 
       <section className="grid gap-4 xl:grid-cols-5">
         <article className="rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-5 xl:col-span-2">
@@ -62,7 +106,7 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailProps
 
         <article className="rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-5 xl:col-span-3">
           <div className="flex flex-wrap gap-3">
-            {["Add event", "Update shipment", "Create exception"].map((actionLabel) => (
+            {["Add event", "Create exception"].map((actionLabel) => (
               <button
                 key={actionLabel}
                 type="button"
@@ -71,6 +115,14 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailProps
                 {actionLabel}
               </button>
             ))}
+            {isOrgAdmin ? (
+              <Link
+                href={`/app/shipments/${shipmentId}/edit`}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--background)]"
+              >
+                Update shipment
+              </Link>
+            ) : null}
           </div>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">

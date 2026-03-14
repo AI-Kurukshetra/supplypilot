@@ -53,13 +53,9 @@ export function Sidebar() {
       </nav>
 
       <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
-        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">Portal</p>
-        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-          Customer-safe tracking pages are available under the external portal.
-        </p>
         <Link
           href="/portal"
-          className="mt-4 inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background)]"
+          className="inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background)]"
         >
           Open portal
         </Link>

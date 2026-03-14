@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { requireAppContext } from "@/lib/auth/session";
 import { FilterBar } from "@/components/app/filter-bar";
 import { PageHeader } from "@/components/app/page-header";
 import { RiskBadge, ShipmentStatusBadge } from "@/components/app/status-badge";
@@ -17,6 +18,7 @@ function getSingleValue(value: string | string[] | undefined) {
 
 export default async function ShipmentsPage({ searchParams }: SearchProps) {
   const params = await searchParams;
+  const context = await requireAppContext();
   const [list, searchSuggestions] = await Promise.all([
     getShipmentList({
       query: getSingleValue(params.query),
@@ -36,7 +38,29 @@ export default async function ShipmentsPage({ searchParams }: SearchProps) {
         eyebrow="Shipments"
         title="Operational shipment list"
         description="Filter by customer, carrier, status, risk, and delivery window. The table is optimized for dense daily operations work."
+        actions={
+          context.member.role === "org_admin" ? (
+            <Link
+              href="/app/shipments/new"
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)] shadow-[0_12px_30px_-18px_var(--shadow-color)] transition hover:-translate-y-0.5 hover:bg-[var(--surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
+            >
+              Add shipment
+            </Link>
+          ) : null
+        }
       />
+
+      {getSingleValue(params.message) ? (
+        <section
+          className={
+            getSingleValue(params.status) === "error"
+              ? "rounded-[24px] border border-[color:rgba(194,74,47,0.25)] bg-[color:rgba(194,74,47,0.08)] px-4 py-3 text-sm text-[color:#c24a2f]"
+              : "rounded-[24px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--foreground)]"
+          }
+        >
+          {getSingleValue(params.message)}
+        </section>
+      ) : null}
 
       <FilterBar
         searchDefaultValue={getSingleValue(params.query)}

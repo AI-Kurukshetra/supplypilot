@@ -155,6 +155,28 @@ export async function listCrudRecords(entityName: CrudEntityName, organizationId
   return (data ?? []) as CrudRecord[];
 }
 
+export async function getCrudRecordById(
+  entityName: CrudEntityName,
+  recordId: string,
+  organizationId: string,
+): Promise<CrudRecord | null> {
+  const entity = getCrudEntityConfig(entityName);
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from(entity.table)
+    .select("*")
+    .eq("id", recordId)
+    .eq(entity.scope, organizationId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data as CrudRecord | null) ?? null;
+}
+
 export async function getCrudWorkspaceData(entityName: CrudEntityName): Promise<CrudWorkspaceData> {
   const context = await requireCrudManagerContext();
   const organizationId = context.organization.id;
