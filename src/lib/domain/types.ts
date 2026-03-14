@@ -190,6 +190,11 @@ export type NotificationRecord = {
   createdAt: string;
 };
 
+export type NotificationCenter = {
+  unreadCount: number;
+  items: NotificationRecord[];
+};
+
 export type DocumentRecord = {
   id: string;
   organizationId: string;

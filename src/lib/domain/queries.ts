@@ -11,6 +11,7 @@ import type {
   ExceptionRecord,
   Facility,
   NotificationRecord,
+  NotificationCenter,
   Order,
   SearchSuggestion,
   Shipment,
@@ -794,7 +795,40 @@ export async function getDocumentsData() {
   }));
 }
 
-export async function getNotificationCenter(profileId: string) {
+export async function getNotificationCenter(profileId: string): Promise<NotificationCenter> {
+  if (!isDemoMode()) {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      throw error;
+    }
+
+    const items: NotificationRecord[] = (data ?? []).map((record) => ({
+      id: String(record.id),
+      organizationId: String(record.organization_id),
+      profileId: String(record.profile_id),
+      shipmentId: record.shipment_id ? String(record.shipment_id) : null,
+      exceptionId: record.exception_id ? String(record.exception_id) : null,
+      channel: String(record.channel) as NotificationRecord["channel"],
+      kind: String(record.kind) as NotificationRecord["kind"],
+      title: String(record.title),
+      body: String(record.body ?? ""),
+      readAt: record.read_at ? String(record.read_at) : null,
+      createdAt: String(record.created_at),
+    }));
+
+    return {
+      unreadCount: items.filter((item: NotificationRecord) => !item.readAt).length,
+      items,
+    };
+  }
+
   const items = demoData.notifications
     .filter((notification) => notification.profileId === profileId)
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());

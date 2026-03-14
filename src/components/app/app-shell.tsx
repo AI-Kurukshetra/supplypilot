@@ -17,6 +17,7 @@ export function AppShell({
           fullName={context.profile.fullName}
           roleLabel={context.member.role.replaceAll("_", " ")}
           unreadNotifications={context.notifications.unreadCount}
+          notificationItems={context.notifications.items}
         />
         <main className="mx-auto flex max-w-[1600px] flex-col gap-6 px-5 py-6">{children}</main>
       </div>
