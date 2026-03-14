@@ -1,19 +1,13 @@
 import Link from "next/link";
 
 import { KpiCard } from "@/components/app/kpi-card";
-import { NotificationCenter } from "@/components/app/notification-center";
 import { PageHeader } from "@/components/app/page-header";
 import { RiskBadge, ShipmentStatusBadge } from "@/components/app/status-badge";
 import { getDashboardData, getRiskSummary } from "@/lib/domain/queries";
 import { formatDateTime, formatPercent, formatNumber, relativeTimeFromNow } from "@/lib/utils";
-import { requireAppContext } from "@/lib/auth/session";
 
 export default async function DashboardPage() {
-  const [context, dashboardData, riskSummary] = await Promise.all([
-    requireAppContext(),
-    getDashboardData(),
-    getRiskSummary(),
-  ]);
+  const [dashboardData, riskSummary] = await Promise.all([getDashboardData(), getRiskSummary()]);
 
   return (
     <>
@@ -163,11 +157,6 @@ export default async function DashboardPage() {
         </div>
 
         <div className="space-y-6">
-          <NotificationCenter
-            unreadCount={context.notifications.unreadCount}
-            items={context.notifications.items}
-          />
-
           <section className="rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-5">
             <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-[var(--muted)]">Carrier performance</p>
             <div className="mt-4 space-y-3">

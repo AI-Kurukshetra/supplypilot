@@ -11,7 +11,7 @@ export function AppShell({
 }) {
   return (
     <div className="min-h-screen lg:flex">
-      <Sidebar organizationName={context.organization.name} />
+      <Sidebar />
       <div className="min-w-0 flex-1">
         <Topbar
           fullName={context.profile.fullName}

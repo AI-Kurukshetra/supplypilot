@@ -245,3 +245,8 @@ export type TrendPoint = {
   label: string;
   value: number;
 };
+
+export type SearchSuggestion = {
+  value: string;
+  label?: string;
+};

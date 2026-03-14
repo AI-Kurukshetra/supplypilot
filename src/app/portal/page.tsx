@@ -1,8 +1,9 @@
 import Link from "next/link";
 
 import { EmptyState } from "@/components/app/empty-state";
+import { PortalSearchForm } from "@/components/portal/portal-search-form";
 import { demoData } from "@/lib/domain/demo-data";
-import { getPortalShipment } from "@/lib/domain/queries";
+import { getPortalShipment, getShipmentSearchSuggestions } from "@/lib/domain/queries";
 
 type SearchProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -11,7 +12,10 @@ type SearchProps = {
 export default async function PortalHomePage({ searchParams }: SearchProps) {
   const params = await searchParams;
   const query = typeof params.q === "string" ? params.q : "";
-  const match = query ? await getPortalShipment(query) : null;
+  const [match, searchSuggestions] = await Promise.all([
+    query ? getPortalShipment(query) : Promise.resolve(null),
+    getShipmentSearchSuggestions({ limit: 12, includeTrackingTokens: true }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -25,24 +29,10 @@ export default async function PortalHomePage({ searchParams }: SearchProps) {
           and permitted documents appear here.
         </p>
 
-        <form
-          className="mt-6 flex flex-col gap-3 sm:flex-row"
-          method="get"
-        >
-          <input
-            type="search"
-            name="q"
-            defaultValue={query}
-            placeholder="Enter shipment reference or token"
-            className="h-12 flex-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 text-sm outline-none transition focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--ring)]/20"
-          />
-          <button
-            type="submit"
-            className="inline-flex h-12 items-center justify-center rounded-2xl bg-[var(--foreground)] px-5 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
-          >
-            Search
-          </button>
-        </form>
+        <PortalSearchForm
+          defaultValue={query}
+          searchSuggestions={searchSuggestions}
+        />
       </section>
 
       {query ? (

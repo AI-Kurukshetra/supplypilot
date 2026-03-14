@@ -4,7 +4,7 @@ import { FilterBar } from "@/components/app/filter-bar";
 import { PageHeader } from "@/components/app/page-header";
 import { RiskBadge, ShipmentStatusBadge } from "@/components/app/status-badge";
 import { demoData } from "@/lib/domain/demo-data";
-import { getShipmentList } from "@/lib/domain/queries";
+import { getShipmentList, getShipmentSearchSuggestions } from "@/lib/domain/queries";
 import { formatDateTime } from "@/lib/utils";
 
 type SearchProps = {
@@ -17,15 +17,18 @@ function getSingleValue(value: string | string[] | undefined) {
 
 export default async function ShipmentsPage({ searchParams }: SearchProps) {
   const params = await searchParams;
-  const list = await getShipmentList({
-    query: getSingleValue(params.query),
-    status: (getSingleValue(params.status) as typeof demoData.shipments[number]["status"] | "all" | undefined) ?? "all",
-    risk: (getSingleValue(params.risk) as typeof demoData.shipments[number]["riskLevel"] | "all" | undefined) ?? "all",
-    customerId: getSingleValue(params.customerId) ?? "all",
-    carrierId: getSingleValue(params.carrierId) ?? "all",
-    dateRange: (getSingleValue(params.dateRange) as "today" | "7d" | "30d" | "90d" | "all" | undefined) ?? "all",
-    page: Number(getSingleValue(params.page) ?? "1"),
-  });
+  const [list, searchSuggestions] = await Promise.all([
+    getShipmentList({
+      query: getSingleValue(params.query),
+      status: (getSingleValue(params.status) as typeof demoData.shipments[number]["status"] | "all" | undefined) ?? "all",
+      risk: (getSingleValue(params.risk) as typeof demoData.shipments[number]["riskLevel"] | "all" | undefined) ?? "all",
+      customerId: getSingleValue(params.customerId) ?? "all",
+      carrierId: getSingleValue(params.carrierId) ?? "all",
+      dateRange: (getSingleValue(params.dateRange) as "today" | "7d" | "30d" | "90d" | "all" | undefined) ?? "all",
+      page: Number(getSingleValue(params.page) ?? "1"),
+    }),
+    getShipmentSearchSuggestions({ limit: 12 }),
+  ]);
 
   return (
     <>
@@ -37,30 +40,36 @@ export default async function ShipmentsPage({ searchParams }: SearchProps) {
 
       <FilterBar
         searchDefaultValue={getSingleValue(params.query)}
+        searchSuggestions={searchSuggestions}
         filters={[
           {
             name: "status",
             label: "Status",
+            selectedValue: getSingleValue(params.status) ?? "all",
             options: [{ label: "All statuses", value: "all" }, ...["planned", "booked", "in_transit", "at_hub", "out_for_delivery", "delayed", "delivered", "exception"].map((value) => ({ label: value.replaceAll("_", " "), value }))],
           },
           {
             name: "risk",
             label: "Risk",
+            selectedValue: getSingleValue(params.risk) ?? "all",
             options: [{ label: "All risk", value: "all" }, ...["low", "medium", "high", "critical"].map((value) => ({ label: value, value }))],
           },
           {
             name: "customerId",
             label: "Customer",
+            selectedValue: getSingleValue(params.customerId) ?? "all",
             options: [{ label: "All customers", value: "all" }, ...demoData.customers.map((item) => ({ label: item.name, value: item.id }))],
           },
           {
             name: "carrierId",
             label: "Carrier",
+            selectedValue: getSingleValue(params.carrierId) ?? "all",
             options: [{ label: "All carriers", value: "all" }, ...demoData.carriers.map((item) => ({ label: item.name, value: item.id }))],
           },
           {
             name: "dateRange",
             label: "Date range",
+            selectedValue: getSingleValue(params.dateRange) ?? "all",
             options: [
               { label: "All", value: "all" },
               { label: "Today", value: "today" },

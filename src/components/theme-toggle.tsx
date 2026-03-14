@@ -42,7 +42,7 @@ export function ThemeToggle() {
       type="button"
       onClick={toggleTheme}
       aria-label="Toggle light and dark mode"
-      className="inline-flex h-11 items-center gap-3 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-sm font-medium text-[var(--foreground)] shadow-[0_12px_30px_-18px_var(--shadow-color)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
+      className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-sm font-medium text-[var(--foreground)] shadow-[0_12px_30px_-18px_var(--shadow-color)] transition hover:-translate-y-0.5 hover:bg-[var(--surface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
     >
       <span
         aria-hidden="true"
@@ -84,7 +84,6 @@ export function ThemeToggle() {
           <path d="M21 12.8A8.95 8.95 0 0 1 11.2 3a9 9 0 1 0 9.8 9.8Z" />
         </svg>
       </span>
-      <span>Theme</span>
     </button>
   );
 }

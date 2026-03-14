@@ -3,26 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { SupplyPilotLogo } from "@/components/brand/supplypilot-logo";
 import { appNavigation } from "@/lib/navigation";
 import { cx } from "@/lib/utils";
 
-export function Sidebar({
-  organizationName,
-}: {
-  organizationName: string;
-}) {
+export function Sidebar() {
   const pathname = usePathname();
 
   return (
     <aside className="sticky top-0 hidden h-screen w-[272px] flex-col border-r border-[var(--border)] bg-[var(--surface)] px-5 py-6 lg:flex">
-      <div className="rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
-        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">SupplyPilot</p>
-        <h1 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-[var(--foreground)]">
-          {organizationName}
-        </h1>
-        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-          Control-tower operations for shipments, exceptions, and customer visibility.
-        </p>
+      <div className="rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)] p-5">
+        <SupplyPilotLogo />
       </div>
 
       <nav className="mt-6 flex flex-1 flex-col gap-2">

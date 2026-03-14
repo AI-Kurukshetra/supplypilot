@@ -7,6 +7,7 @@ import type {
   DashboardMetrics,
   ExceptionRecord,
   NotificationRecord,
+  SearchSuggestion,
   Shipment,
   ShipmentListFilters,
   ShipmentMilestone,
@@ -149,6 +150,39 @@ export async function getShipmentList(filters: ShipmentListFilters = {}) {
     currentPage,
     filters,
   };
+}
+
+export async function getShipmentSearchSuggestions({
+  limit = 10,
+  includeTrackingTokens = false,
+}: {
+  limit?: number;
+  includeTrackingTokens?: boolean;
+} = {}): Promise<SearchSuggestion[]> {
+  const suggestions = new Map<string, SearchSuggestion>();
+
+  for (const shipment of demoData.shipments) {
+    suggestions.set(shipment.shipmentReference, {
+      value: shipment.shipmentReference,
+      label: `${shipment.externalReference} · ${shipment.summary}`,
+    });
+
+    if (shipment.externalReference) {
+      suggestions.set(shipment.externalReference, {
+        value: shipment.externalReference,
+        label: shipment.shipmentReference,
+      });
+    }
+
+    if (includeTrackingTokens) {
+      suggestions.set(shipment.trackingToken, {
+        value: shipment.trackingToken,
+        label: shipment.shipmentReference,
+      });
+    }
+  }
+
+  return Array.from(suggestions.values()).slice(0, limit);
 }
 
 export async function getShipmentDetail(shipmentId: string) {
