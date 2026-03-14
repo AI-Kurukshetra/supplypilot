@@ -27,6 +27,7 @@ export type CrudWorkspaceData = {
 };
 
 const managerRoles = new Set(["org_admin", "ops_manager"]);
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type DatabaseErrorLike = {
   code?: string;
@@ -130,6 +131,18 @@ export async function requireCrudManagerContext() {
 
   if (!managerRoles.has(context.member.role)) {
     throw new Error("You do not have permission to manage CRUD data.");
+  }
+
+  if (context.mode !== "supabase") {
+    throw new Error(
+      "CRUD writes are unavailable in demo mode. Restart the app with SUPPLYPILOT_DEMO_MODE=false and sign in again.",
+    );
+  }
+
+  if (!uuidPattern.test(context.organization.id)) {
+    throw new Error(
+      "Invalid organization context detected. Restart the app and sign in again before creating records.",
+    );
   }
 
   return context;
