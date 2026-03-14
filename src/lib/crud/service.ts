@@ -27,6 +27,11 @@ export type CrudWorkspaceData = {
 
 const managerRoles = new Set(["org_admin", "ops_manager"]);
 
+type DatabaseErrorLike = {
+  code?: string;
+  message?: string;
+};
+
 function parseDateTime(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -45,6 +50,78 @@ function formatOptionLabel(record: Record<string, unknown>, keys: string[]) {
   }
 
   return String(record.id ?? "Record");
+}
+
+function normalizeEmail(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function mapCrudDatabaseError(entityName: CrudEntityName, error: DatabaseErrorLike) {
+  if (error.code === "23505") {
+    if (entityName === "customers") {
+      if (error.message?.includes("customers_organization_id_code_key")) {
+        return new Error("Customer code already exists in this organization.");
+      }
+
+      return new Error("A customer with the same unique details already exists.");
+    }
+  }
+
+  return error instanceof Error ? error : new Error(error.message ?? "Unable to save record.");
+}
+
+async function validateCustomerPayload(
+  payload: Record<string, unknown>,
+  organizationId: string,
+  recordId?: string,
+) {
+  const supabase = createAdminClient();
+  const customerCode = typeof payload.code === "string" ? payload.code.trim() : "";
+  const contactEmail = normalizeEmail(payload.contact_email);
+
+  if (customerCode) {
+    let codeQuery = supabase
+      .from("customers")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("code", customerCode);
+
+    if (recordId) {
+      codeQuery = codeQuery.neq("id", recordId);
+    }
+
+    const { data: existingCode, error: codeError } = await codeQuery.maybeSingle();
+    if (codeError) {
+      throw codeError;
+    }
+
+    if (existingCode) {
+      throw new Error("Customer code already exists in this organization.");
+    }
+  }
+
+  if (contactEmail) {
+    let emailQuery = supabase
+      .from("customers")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .ilike("contact_email", contactEmail);
+
+    if (recordId) {
+      emailQuery = emailQuery.neq("id", recordId);
+    }
+
+    const { data: existingEmail, error: emailError } = await emailQuery.maybeSingle();
+    if (emailError) {
+      throw emailError;
+    }
+
+    if (existingEmail) {
+      throw new Error("Contact email already exists for another customer in this organization.");
+    }
+
+    payload.contact_email = contactEmail;
+  }
 }
 
 export async function requireCrudManagerContext() {
@@ -280,13 +357,17 @@ export async function createCrudRecord(entityName: CrudEntityName, formData: For
   const entity = getCrudEntityConfig(entityName);
   const supabase = createAdminClient();
 
+  if (entityName === "customers") {
+    await validateCustomerPayload(payload, context.organization.id);
+  }
+
   const { data, error } = await supabase
     .from(entity.table)
     .insert(payload)
     .select("*")
     .single();
   if (error) {
-    throw error;
+    throw mapCrudDatabaseError(entityName, error);
   }
 
   return (data as CrudRecord) ?? null;
@@ -320,13 +401,17 @@ export async function updateCrudRecord(entityName: CrudEntityName, recordId: str
   const entity = getCrudEntityConfig(entityName);
   const supabase = createAdminClient();
 
+  if (entityName === "customers") {
+    await validateCustomerPayload(payload, context.organization.id, recordId);
+  }
+
   const { error } = await supabase
     .from(entity.table)
     .update(payload)
     .eq("id", recordId);
 
   if (error) {
-    throw error;
+    throw mapCrudDatabaseError(entityName, error);
   }
 }
 
