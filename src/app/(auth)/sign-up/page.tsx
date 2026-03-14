@@ -76,7 +76,7 @@ export default async function SignUpPage({ searchParams }: SearchProps) {
             </label>
             <button
               type="submit"
-              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[var(--foreground)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
+              className="btn btn-primary btn-full min-h-12"
             >
               Continue to onboarding
             </button>

@@ -41,14 +41,14 @@ export default async function ShipmentDetailPage({ params, searchParams }: Shipm
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 href={`/app/shipments/${shipmentId}/edit`}
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)] shadow-[0_12px_30px_-18px_var(--shadow-color)] transition hover:-translate-y-0.5 hover:bg-[var(--surface)]"
+                className="btn btn-primary"
               >
                 Edit shipment
               </Link>
               <form action={deleteAction}>
                 <button
                   type="submit"
-                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-[color:rgba(194,74,47,0.25)] bg-[color:rgba(194,74,47,0.08)] px-4 text-sm font-semibold text-[color:#c24a2f] transition hover:bg-[color:rgba(194,74,47,0.14)]"
+                  className="btn btn-danger"
                 >
                   Delete shipment
                 </button>
@@ -110,7 +110,7 @@ export default async function ShipmentDetailPage({ params, searchParams }: Shipm
               <button
                 key={actionLabel}
                 type="button"
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--background)]"
+                className="btn btn-secondary font-medium"
               >
                 {actionLabel}
               </button>
@@ -118,7 +118,7 @@ export default async function ShipmentDetailPage({ params, searchParams }: Shipm
             {isOrgAdmin ? (
               <Link
                 href={`/app/shipments/${shipmentId}/edit`}
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--background)]"
+                className="btn btn-secondary font-medium"
               >
                 Update shipment
               </Link>
@@ -198,7 +198,7 @@ export default async function ShipmentDetailPage({ params, searchParams }: Shipm
                         href={`/api/documents/${document.id}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-3 inline-flex h-9 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-xs font-semibold text-[var(--foreground)] transition hover:bg-[var(--background)]"
+                        className="btn btn-secondary btn-xs mt-3"
                       >
                         View PDF
                       </Link>

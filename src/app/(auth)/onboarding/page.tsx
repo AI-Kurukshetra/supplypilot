@@ -57,7 +57,7 @@ export default async function OnboardingPage({ searchParams }: SearchProps) {
           <div className="sm:col-span-2">
             <button
               type="submit"
-              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[var(--foreground)] px-5 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
+              className="btn btn-primary min-h-12 px-5"
             >
               Create organization
             </button>

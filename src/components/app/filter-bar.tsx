@@ -168,7 +168,7 @@ export function FilterBar({
         <button
           type="submit"
           disabled={isPending}
-          className="mt-auto inline-flex h-11 items-center justify-center rounded-2xl bg-[var(--foreground)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
+          className="btn btn-primary mt-auto"
         >
           {isPending ? "Updating..." : "Apply filters"}
         </button>

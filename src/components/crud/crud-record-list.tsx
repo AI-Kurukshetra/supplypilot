@@ -80,7 +80,7 @@ export function CrudRecordList({
               >
                 <button
                   type="submit"
-                  className="inline-flex h-10 items-center justify-center rounded-2xl border border-[color:rgba(194,74,47,0.25)] bg-[color:rgba(194,74,47,0.08)] px-4 text-sm font-semibold text-[color:#c24a2f] transition hover:bg-[color:rgba(194,74,47,0.14)]"
+                  className="btn btn-danger btn-sm"
                 >
                   Delete record
                 </button>

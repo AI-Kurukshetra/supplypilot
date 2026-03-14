@@ -77,7 +77,7 @@ export default async function PortalShipmentPage({ params }: PortalShipmentProps
                 href={`/api/portal-documents/${document.id}`}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-4 inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background)]"
+                className="btn btn-secondary btn-sm mt-4"
               >
                 View PDF
               </Link>

@@ -131,7 +131,7 @@ export function Sidebar() {
       <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
         <Link
           href="/portal"
-          className="inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background)]"
+          className="btn btn-secondary btn-sm"
         >
           Open portal
         </Link>

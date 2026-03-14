@@ -62,7 +62,7 @@ export default async function CrudWorkspacePage({ searchParams }: SearchProps) {
         actions={
           <Link
             href="/app/settings"
-            className="inline-flex h-11 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]"
+            className="btn btn-secondary"
           >
             Back to settings
           </Link>

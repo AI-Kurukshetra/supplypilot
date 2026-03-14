@@ -14,13 +14,13 @@ export default function NotFoundPage() {
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/app"
-            className="inline-flex h-11 items-center justify-center rounded-2xl bg-[var(--foreground)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
+            className="btn btn-primary"
           >
             Go to dashboard
           </Link>
           <Link
             href="/portal"
-            className="inline-flex h-11 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background)]"
+            className="btn btn-secondary"
           >
             Go to portal
           </Link>

@@ -49,7 +49,7 @@ export default async function DocumentsPage() {
                       href={`/api/documents/${document.id}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-strong)] px-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface)]"
+                      className="btn btn-primary btn-sm"
                     >
                       View PDF
                     </Link>

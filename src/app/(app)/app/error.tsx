@@ -18,7 +18,7 @@ export default function AppError({
       <button
         type="button"
         onClick={reset}
-        className="mt-5 inline-flex h-11 items-center justify-center rounded-2xl bg-rose-700 px-4 text-sm font-semibold text-white transition hover:opacity-90"
+        className="btn btn-danger mt-5"
       >
         Retry
       </button>

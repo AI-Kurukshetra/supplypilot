@@ -21,7 +21,7 @@ export function Topbar({
       <div className="flex flex-nowrap items-center gap-3 overflow-x-auto pb-1 xl:shrink-0 xl:overflow-visible">
         <Link
           href="/portal"
-          className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]"
+          className="btn btn-secondary shrink-0 font-medium"
         >
           Customer portal
         </Link>
@@ -32,7 +32,7 @@ export function Topbar({
         <button
           type="button"
           aria-label={`Notifications: ${unreadNotifications} unread`}
-          className="inline-flex h-11 shrink-0 items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]"
+          className="btn btn-secondary shrink-0 px-3.5 font-medium"
         >
           <span
             aria-hidden="true"
@@ -60,7 +60,7 @@ export function Topbar({
         <form action={signOutAction}>
           <button
             type="submit"
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]"
+            className="btn btn-secondary shrink-0 font-medium"
           >
             Sign out
           </button>

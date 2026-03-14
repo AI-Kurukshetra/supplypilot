@@ -90,7 +90,7 @@ export function PortalSearchForm({
       <button
         type="submit"
         disabled={isPending}
-        className="inline-flex h-12 items-center justify-center rounded-2xl bg-[var(--foreground)] px-5 text-sm font-semibold text-[var(--background)] transition hover:opacity-90 disabled:opacity-70"
+        className="btn btn-primary min-h-12 px-5"
       >
         {isPending ? "Searching..." : "Search"}
       </button>

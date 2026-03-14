@@ -132,6 +132,114 @@ a {
   box-shadow: 0 20px 80px -48px var(--shadow-color);
 }
 
+.btn {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0 1rem;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 12px 30px -18px var(--shadow-color);
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--ring),
+    0 0 0 4px var(--background),
+    0 12px 30px -18px var(--shadow-color);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
+.btn-primary {
+  border-color: var(--border-strong);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-strong));
+  color: var(--foreground);
+}
+
+.btn-primary:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.btn-secondary {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.btn-secondary:hover {
+  background: var(--surface-strong);
+}
+
+.btn-danger {
+  border-color: rgba(194, 74, 47, 0.25);
+  background: rgba(194, 74, 47, 0.08);
+  color: #c24a2f;
+  box-shadow: none;
+}
+
+.btn-danger:hover {
+  background: rgba(194, 74, 47, 0.14);
+}
+
+.btn-tab {
+  min-height: 2.5rem;
+  border-color: var(--border);
+  background: var(--surface);
+  padding: 0 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.btn-tab:hover {
+  background: var(--surface-strong);
+}
+
+.btn-tab-active {
+  border-color: var(--border-strong);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-strong));
+  font-weight: 600;
+}
+
+.btn-sm {
+  min-height: 2.5rem;
+  padding: 0 0.875rem;
+}
+
+.btn-xs {
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+}
+
+.btn-full {
+  width: 100%;
+}
+
 @media (max-width: 640px) {
   body::before {
     background-size: 48px 48px;

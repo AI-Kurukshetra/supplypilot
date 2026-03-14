@@ -159,7 +159,7 @@ export function CrudForm({
 
       <button
         type="submit"
-        className="inline-flex h-11 items-center justify-center rounded-2xl bg-[var(--foreground)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
+        className="btn btn-primary"
       >
         {submitLabel}
       </button>

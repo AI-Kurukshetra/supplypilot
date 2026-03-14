@@ -19,8 +19,8 @@ export function CrudEntityNav({
             href={`/app/settings/data?entity=${entityName}`}
             className={
               isActive
-                ? "inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--foreground)] px-4 text-sm font-semibold text-[var(--background)]"
-                : "inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]"
+                ? "btn btn-tab btn-tab-active"
+                : "btn btn-tab"
             }
           >
             {entity.label}
