@@ -1,7 +1,5 @@
 import { getAppContext } from "@/lib/auth/session";
-import { demoData } from "@/lib/domain/demo-data";
 import type { Carrier, Customer, DocumentRecord, Order, Shipment } from "@/lib/domain/types";
-import { isDemoMode } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type DocumentPdfPayload = {
@@ -86,37 +84,6 @@ export async function getInternalDocumentPdfPayload(documentId: string) {
 
   if (!context) {
     return { kind: "unauthorized" as const };
-  }
-
-  if (isDemoMode()) {
-    const document = demoData.documents.find((item) => item.id === documentId);
-    if (!document) {
-      return { kind: "not_found" as const };
-    }
-
-    const shipment = demoData.shipments.find((item) => item.id === document.shipmentId);
-    const customer = demoData.customers.find((item) => item.id === document.customerId);
-    const carrier = demoData.carriers.find((item) => item.id === shipment?.carrierId);
-    const order = demoData.orders.find((item) => item.id === shipment?.orderId) ?? null;
-    const origin = demoData.facilities.find((item) => item.id === shipment?.originFacilityId);
-    const destination = demoData.facilities.find((item) => item.id === shipment?.destinationFacilityId);
-
-    if (!shipment || !customer) {
-      return { kind: "not_found" as const };
-    }
-
-    return {
-      kind: "ok" as const,
-      payload: buildPdfPayload(
-        document,
-        shipment,
-        customer,
-        carrier ?? null,
-        order,
-        buildRouteLabel(origin?.city, origin?.region),
-        buildRouteLabel(destination?.city, destination?.region),
-      ),
-    };
   }
 
   const supabase = createAdminClient();
@@ -277,34 +244,6 @@ export async function getInternalDocumentPdfPayload(documentId: string) {
 }
 
 export async function getPortalDocumentPdfPayload(documentId: string) {
-  if (isDemoMode()) {
-    const document = demoData.documents.find((item) => item.id === documentId && item.isCustomerVisible);
-    if (!document) {
-      return null;
-    }
-
-    const shipment = demoData.shipments.find((item) => item.id === document.shipmentId);
-    const customer = demoData.customers.find((item) => item.id === document.customerId);
-    const carrier = demoData.carriers.find((item) => item.id === shipment?.carrierId);
-    const order = demoData.orders.find((item) => item.id === shipment?.orderId) ?? null;
-    const origin = demoData.facilities.find((item) => item.id === shipment?.originFacilityId);
-    const destination = demoData.facilities.find((item) => item.id === shipment?.destinationFacilityId);
-
-    if (!shipment || !customer) {
-      return null;
-    }
-
-    return buildPdfPayload(
-      document,
-      shipment,
-      customer,
-      carrier ?? null,
-      order,
-      buildRouteLabel(origin?.city, origin?.region),
-      buildRouteLabel(destination?.city, destination?.region),
-    );
-  }
-
   const supabase = createAdminClient();
   const { data: documentRow, error: documentError } = await supabase
     .from("documents")

@@ -2,12 +2,13 @@ import Link from "next/link";
 
 import { PageHeader } from "@/components/app/page-header";
 import { RoleBadge } from "@/components/app/status-badge";
-import { demoData } from "@/lib/domain/demo-data";
 import { requireAppContext } from "@/lib/auth/session";
+import { getSettingsData } from "@/lib/domain/queries";
 
 export default async function SettingsPage() {
   const context = await requireAppContext();
   const canManageData = context.member.role === "org_admin" || context.member.role === "ops_manager";
+  const settingsData = await getSettingsData();
 
   return (
     <>
@@ -36,15 +37,18 @@ export default async function SettingsPage() {
           <div className="mt-5 space-y-3 text-sm text-[var(--muted)]">
             <p>Slug: {context.organization.slug}</p>
             <p>Timezone: {context.organization.timezone}</p>
-            <p>Mode: {context.mode}</p>
+            <p>Environment: production</p>
           </div>
         </article>
 
         <article className="rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-5">
           <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-[var(--muted)]">Members</p>
           <div className="mt-4 space-y-3">
-            {demoData.members.map((member) => {
-              const profile = demoData.profiles.find((item) => item.id === member.profileId)!;
+            {settingsData.members.map((member) => {
+              const profile = member.profile;
+              if (!profile) {
+                return null;
+              }
               return (
                 <div
                   key={member.id}
@@ -81,7 +85,7 @@ export default async function SettingsPage() {
         <article className="rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-5">
           <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-[var(--muted)]">Webhook endpoints</p>
           <div className="mt-4 space-y-3">
-            {demoData.webhookEndpoints.map((endpoint) => (
+            {settingsData.webhookEndpoints.map((endpoint) => (
               <div
                 key={endpoint.id}
                 className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)] p-4"

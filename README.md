@@ -1,6 +1,6 @@
 # SupplyPilot
 
-SupplyPilot is a production-minded SaaS scaffold for supply chain visibility and exception management. It includes a Next.js App Router frontend, Supabase-ready schema and RLS, a customer-safe portal, seeded demo data, and Vercel-oriented deployment defaults.
+SupplyPilot is a production-minded SaaS application for supply chain visibility and exception management. It includes a Next.js App Router frontend, Supabase-backed auth/data/storage, a customer-safe portal, and Vercel-oriented deployment defaults.
 
 ## Included
 
@@ -16,13 +16,12 @@ SupplyPilot is a production-minded SaaS scaffold for supply chain visibility and
   - documents
   - settings
 - Customer-facing tracking portal
-- Demo data and demo-mode fallback for local product iteration
 - Supabase schema, RLS policies, Storage bucket setup, and SQL seed file
 - Resend notification plumbing
 
 ## Architecture notes
 
-- `src/lib/domain`: typed domain models, demo data, and query functions that keep page code thin
+- `src/lib/domain`: typed domain models and query functions that keep page code thin
 - `src/lib/crud`: reusable entity configuration and data-access helpers for the admin workspace
 - `src/components/app`: app-shell primitives such as header, navigation, flash messaging, notifications, and operational UI
 - `src/lib/search-params.ts`: shared search-param parsing for route-level status/message handling
@@ -43,9 +42,7 @@ npm install
 cp .env.example .env.local
 ```
 
-3. For the quickest runnable setup, keep `SUPPLYPILOT_DEMO_MODE=true`.
-
-4. Start the app:
+3. Start the app:
 
 ```bash
 npm run dev
@@ -78,14 +75,6 @@ npm run supabase:db:push
 npm run supabase:db:seed
 ```
 
-6. Bootstrap the seeded demo users into Supabase Auth:
-
-```bash
-npm run supabase:bootstrap-demo-auth
-```
-
-This links the seeded profiles to real `auth.users` accounts. The shared demo password is `SupplyPilotDemo123!`.
-
 ## Supabase setup
 
 1. Create a Supabase project.
@@ -110,10 +99,10 @@ The current notification plumbing lives in [resend.ts](/Users/apple/suuplypilot/
 1. Push this project to a Git repository.
 2. Import it into Vercel.
 3. Set the same environment variables from `.env.local` in the Vercel project.
-4. Keep `SUPPLYPILOT_DEMO_MODE=false` in real connected environments.
+4. Deploy.
 5. Deploy.
 
 ## Notes
 
-- Demo mode is intentional: it keeps the app coherent and screenshot-ready while the real Supabase environment is still being provisioned.
+- Seed data lives in Supabase, and the application always reads/writes against the connected project.
 - Prompt logging utilities created during setup are documented in [LOGGING_SETUP.md](/Users/apple/suuplypilot/LOGGING_SETUP.md).

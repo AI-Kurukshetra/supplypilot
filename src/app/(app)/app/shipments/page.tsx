@@ -5,8 +5,8 @@ import { requireAppContext } from "@/lib/auth/session";
 import { FilterBar } from "@/components/app/filter-bar";
 import { PageHeader } from "@/components/app/page-header";
 import { RiskBadge, ShipmentStatusBadge } from "@/components/app/status-badge";
-import { demoData } from "@/lib/domain/demo-data";
-import { getShipmentList, getShipmentSearchSuggestions } from "@/lib/domain/queries";
+import { getShipmentFilterOptions, getShipmentList, getShipmentSearchSuggestions } from "@/lib/domain/queries";
+import { riskLevels, shipmentStatuses } from "@/lib/domain/types";
 import { getFlashState, getSearchParam } from "@/lib/search-params";
 import { formatDateTime } from "@/lib/utils";
 
@@ -18,17 +18,18 @@ export default async function ShipmentsPage({ searchParams }: SearchProps) {
   const params = await searchParams;
   const context = await requireAppContext();
   const flash = getFlashState(params);
-  const [list, searchSuggestions] = await Promise.all([
+  const [list, searchSuggestions, filterOptions] = await Promise.all([
     getShipmentList({
       query: getSearchParam(params.query),
-      status: (getSearchParam(params.status) as typeof demoData.shipments[number]["status"] | "all" | undefined) ?? "all",
-      risk: (getSearchParam(params.risk) as typeof demoData.shipments[number]["riskLevel"] | "all" | undefined) ?? "all",
+      status: (getSearchParam(params.status) as (typeof shipmentStatuses)[number] | "all" | undefined) ?? "all",
+      risk: (getSearchParam(params.risk) as (typeof riskLevels)[number] | "all" | undefined) ?? "all",
       customerId: getSearchParam(params.customerId) ?? "all",
       carrierId: getSearchParam(params.carrierId) ?? "all",
       dateRange: (getSearchParam(params.dateRange) as "today" | "7d" | "30d" | "90d" | "all" | undefined) ?? "all",
       page: Number(getSearchParam(params.page) ?? "1"),
     }),
     getShipmentSearchSuggestions({ limit: 12 }),
+    getShipmentFilterOptions(),
   ]);
 
   return (
@@ -62,25 +63,25 @@ export default async function ShipmentsPage({ searchParams }: SearchProps) {
             name: "status",
             label: "Status",
             selectedValue: getSearchParam(params.status) ?? "all",
-            options: [{ label: "All statuses", value: "all" }, ...["planned", "booked", "in_transit", "at_hub", "out_for_delivery", "delayed", "delivered", "exception"].map((value) => ({ label: value.replaceAll("_", " "), value }))],
+            options: [{ label: "All statuses", value: "all" }, ...shipmentStatuses.map((value) => ({ label: value.replaceAll("_", " "), value }))],
           },
           {
             name: "risk",
             label: "Risk",
             selectedValue: getSearchParam(params.risk) ?? "all",
-            options: [{ label: "All risk", value: "all" }, ...["low", "medium", "high", "critical"].map((value) => ({ label: value, value }))],
+            options: [{ label: "All risk", value: "all" }, ...riskLevels.map((value) => ({ label: value, value }))],
           },
           {
             name: "customerId",
             label: "Customer",
             selectedValue: getSearchParam(params.customerId) ?? "all",
-            options: [{ label: "All customers", value: "all" }, ...demoData.customers.map((item) => ({ label: item.name, value: item.id }))],
+            options: [{ label: "All customers", value: "all" }, ...filterOptions.customers],
           },
           {
             name: "carrierId",
             label: "Carrier",
             selectedValue: getSearchParam(params.carrierId) ?? "all",
-            options: [{ label: "All carriers", value: "all" }, ...demoData.carriers.map((item) => ({ label: item.name, value: item.id }))],
+            options: [{ label: "All carriers", value: "all" }, ...filterOptions.carriers],
           },
           {
             name: "dateRange",

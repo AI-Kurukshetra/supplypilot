@@ -11,8 +11,7 @@
     "supabase:login": "npx supabase login",
     "supabase:link": "npx supabase link",
     "supabase:db:push": "npx supabase db push",
-    "supabase:db:seed": "npx supabase db reset --linked",
-    "supabase:bootstrap-demo-auth": "node --env-file=.env.local ./scripts/bootstrap-demo-auth.mjs"
+    "supabase:db:seed": "npx supabase db reset --linked"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",

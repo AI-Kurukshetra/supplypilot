@@ -1,6 +1,5 @@
 type AppEnv = {
   appUrl: string;
-  demoMode: boolean;
   supabaseUrl?: string;
   supabasePublishableKey?: string;
   supabaseServiceRoleKey?: string;
@@ -10,7 +9,6 @@ type AppEnv = {
 
 const appEnv: AppEnv = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-  demoMode: (process.env.SUPPLYPILOT_DEMO_MODE ?? "true") !== "false",
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
   supabasePublishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -20,10 +18,6 @@ const appEnv: AppEnv = {
 
 export function getAppEnv() {
   return appEnv;
-}
-
-export function isDemoMode() {
-  return appEnv.demoMode || !hasSupabaseCredentials();
 }
 
 export function hasSupabaseCredentials() {
@@ -41,7 +35,7 @@ export function hasResendCredentials() {
 export function requireSupabaseEnv() {
   if (!appEnv.supabaseUrl || !appEnv.supabasePublishableKey) {
     throw new Error(
-      "Missing Supabase environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
+      "Missing Supabase environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY before running SupplyPilot.",
     );
   }
 

@@ -1,7 +1,6 @@
 import { cache } from "react";
 
 import { requireAppContext } from "@/lib/auth/session";
-import { demoData } from "@/lib/domain/demo-data";
 import type {
   AuditLogRecord,
   Carrier,
@@ -19,8 +18,10 @@ import type {
   ShipmentListFilters,
   ShipmentMilestone,
   TrendPoint,
+  WebhookEndpoint,
+  Profile,
+  OrganizationMember,
 } from "@/lib/domain/types";
-import { isDemoMode } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { average, sum } from "@/lib/utils";
 
@@ -249,190 +250,224 @@ async function buildSupabaseShipmentViewModels(shipments: SupabaseRow[], organiz
   });
 }
 
-function buildShipmentView(shipment: Shipment): ShipmentView {
-  const customer = demoData.customers.find((item) => item.id === shipment.customerId)!;
-  const carrier = demoData.carriers.find((item) => item.id === shipment.carrierId)!;
-  const order = demoData.orders.find((item) => item.id === shipment.orderId)!;
-  const origin = demoData.facilities.find((item) => item.id === shipment.originFacilityId)!;
-  const destination = demoData.facilities.find((item) => item.id === shipment.destinationFacilityId)!;
-  const openExceptionCount = demoData.exceptions.filter(
-    (exceptionRecord) => exceptionRecord.shipmentId === shipment.id && exceptionRecord.status !== "resolved",
-  ).length;
+function buildTrendPoints(values: string[], slots = 6): TrendPoint[] {
+  const bucketSize = 7 * 24 * 3600000;
+  const now = Date.now();
+  const start = now - bucketSize * (slots - 1);
+  const counts = Array.from({ length: slots }, () => 0);
 
+  for (const value of values) {
+    const timestamp = new Date(value).getTime();
+    if (Number.isNaN(timestamp) || timestamp < start) {
+      continue;
+    }
+
+    const index = Math.min(slots - 1, Math.floor((timestamp - start) / bucketSize));
+    counts[index] += 1;
+  }
+
+  return counts.map((count, index) => {
+    const bucketDate = new Date(start + index * bucketSize);
+    return {
+      label: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(bucketDate),
+      value: count,
+    };
+  });
+}
+
+function mapProfileRecord(record: SupabaseRow): Profile {
   return {
-    ...shipment,
-    customer,
-    carrier,
-    orderNumber: order.orderNumber,
-    originName: `${origin.city}, ${origin.region}`,
-    destinationName: `${destination.city}, ${destination.region}`,
-    openExceptionCount,
+    id: String(record.id),
+    authUserId: record.auth_user_id ? String(record.auth_user_id) : null,
+    fullName: String(record.full_name),
+    email: String(record.email),
+    title: String(record.title ?? ""),
+    createdAt: String(record.created_at),
+    updatedAt: String(record.updated_at),
+    notificationPreferences: (record.notification_preferences ?? {
+      emailExceptionCreated: false,
+      emailEtaChanged: false,
+      emailShipmentDelayed: false,
+      emailMilestoneReached: false,
+    }) as Profile["notificationPreferences"],
+  };
+}
+
+function mapOrganizationMemberRecord(record: SupabaseRow): OrganizationMember {
+  return {
+    id: String(record.id),
+    organizationId: String(record.organization_id),
+    profileId: String(record.profile_id),
+    role: String(record.role) as OrganizationMember["role"],
+    customerId: record.customer_id ? String(record.customer_id) : null,
+    createdAt: String(record.created_at),
+  };
+}
+
+function mapWebhookEndpointRecord(record: SupabaseRow): WebhookEndpoint {
+  return {
+    id: String(record.id),
+    organizationId: String(record.organization_id),
+    label: String(record.label),
+    url: String(record.url),
+    subscribedEvents: Array.isArray(record.subscribed_events)
+      ? record.subscribed_events.map((item) => String(item))
+      : [],
+    createdAt: String(record.created_at),
   };
 }
 
 export const getDashboardMetrics = cache(async (): Promise<DashboardMetrics> => {
-  const totalShipments = demoData.shipments.length;
-  const delivered = demoData.shipments.filter((shipment) => shipment.actualDeliveryAt);
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const [shipmentsResult, exceptionsResult] = await Promise.all([
+    supabase.from("shipments").select("promised_delivery_at, actual_delivery_at, status").eq("organization_id", organizationId),
+    supabase
+      .from("exceptions")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .neq("status", "resolved"),
+  ]);
+
+  if (shipmentsResult.error) throw shipmentsResult.error;
+  if (exceptionsResult.error) throw exceptionsResult.error;
+
+  const shipments = shipmentsResult.data ?? [];
+  const delivered = shipments.filter((shipment) => shipment.actual_delivery_at);
   const onTimeDelivered = delivered.filter(
-    (shipment) => new Date(shipment.actualDeliveryAt!).getTime() <= new Date(shipment.promisedDeliveryAt).getTime(),
+    (shipment) =>
+      new Date(String(shipment.actual_delivery_at)).getTime() <=
+      new Date(String(shipment.promised_delivery_at)).getTime(),
   );
 
   return {
-    totalShipments,
+    totalShipments: shipments.length,
     onTimeRate: delivered.length ? (onTimeDelivered.length / delivered.length) * 100 : 0,
-    delayedShipments: demoData.shipments.filter((shipment) => shipment.status === "delayed").length,
-    openExceptions: demoData.exceptions.filter((exceptionRecord) => exceptionRecord.status !== "resolved").length,
+    delayedShipments: shipments.filter((shipment) => shipment.status === "delayed").length,
+    openExceptions: (exceptionsResult.data ?? []).length,
   };
 });
 
 export const getDashboardData = cache(async () => {
+  const { organizationId, supabase } = await getShipmentDataContext();
   const metrics = await getDashboardMetrics();
-  const atRiskShipments = demoData.shipments
+  const [shipmentsResult, eventsResult, exceptionsResult, carriersResult, profilesResult] = await Promise.all([
+    supabase.from("shipments").select("*").eq("organization_id", organizationId).order("updated_at", { ascending: false }),
+    supabase
+      .from("shipment_events")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .eq("event_type", "eta_change")
+      .order("occurred_at", { ascending: false })
+      .limit(6),
+    supabase
+      .from("exceptions")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .neq("status", "resolved")
+      .order("updated_at", { ascending: false })
+      .limit(6),
+    supabase.from("carriers").select("*").eq("organization_id", organizationId).order("name"),
+    supabase.from("profiles").select("*").eq("default_organization_id", organizationId),
+  ]);
+
+  if (shipmentsResult.error) throw shipmentsResult.error;
+  if (eventsResult.error) throw eventsResult.error;
+  if (exceptionsResult.error) throw exceptionsResult.error;
+  if (carriersResult.error) throw carriersResult.error;
+  if (profilesResult.error) throw profilesResult.error;
+
+  const shipmentViews = await buildSupabaseShipmentViewModels(shipmentsResult.data ?? [], organizationId);
+  const shipmentMap = new Map(shipmentViews.map((shipment) => [shipment.id, shipment]));
+  const profileMap = new Map((profilesResult.data ?? []).map((row) => {
+    const profile = mapProfileRecord(row as SupabaseRow);
+    return [profile.id, profile];
+  }));
+
+  const atRiskShipments = shipmentViews
     .filter((shipment) => shipment.riskLevel === "high" || shipment.riskLevel === "critical")
-    .slice(0, 8)
-    .map(buildShipmentView);
-  const etaChangeFeed = demoData.shipmentEvents
-    .filter((event) => event.eventType === "eta_change")
-    .slice(0, 6)
-    .map((event) => ({
+    .slice(0, 8);
+  const etaChangeFeed = (eventsResult.data ?? []).map((row) => {
+    const event = mapEventRecord(row as SupabaseRow);
+    return {
       ...event,
-      shipment: demoData.shipments.find((shipment) => shipment.id === event.shipmentId)!,
-    }));
-  const openExceptions = demoData.exceptions
-    .filter((exceptionRecord) => exceptionRecord.status !== "resolved")
-    .slice(0, 6)
-    .map((exceptionRecord) => ({
+      shipment: shipmentMap.get(event.shipmentId)!,
+    };
+  });
+  const openExceptions = (exceptionsResult.data ?? []).map((row) => {
+    const exceptionRecord = mapExceptionRecord(row as SupabaseRow);
+    return {
       ...exceptionRecord,
-      shipment: demoData.shipments.find((shipment) => shipment.id === exceptionRecord.shipmentId)!,
-      customer: demoData.customers.find((customer) => customer.id === exceptionRecord.customerId)!,
-      owner: exceptionRecord.ownerProfileId
-        ? demoData.profiles.find((profile) => profile.id === exceptionRecord.ownerProfileId) ?? null
-        : null,
-    }));
+      shipment: shipmentMap.get(exceptionRecord.shipmentId)!,
+      customer: shipmentMap.get(exceptionRecord.shipmentId)!.customer,
+      owner: exceptionRecord.ownerProfileId ? profileMap.get(exceptionRecord.ownerProfileId) ?? null : null,
+    };
+  });
+
+  const carriers = await getCarriersData();
 
   return {
     metrics,
     atRiskShipments,
     etaChangeFeed,
     openExceptions,
-    carrierPerformance: demoData.carriers,
+    carrierPerformance: carriers,
   };
 });
 
 export async function getShipmentList(filters: ShipmentListFilters = {}) {
-  if (!isDemoMode()) {
-    const { organizationId, supabase } = await getShipmentDataContext();
-    let query = supabase
-      .from("shipments")
-      .select("*", { count: "exact" })
-      .eq("organization_id", organizationId);
+  const { organizationId, supabase } = await getShipmentDataContext();
+  let query = supabase
+    .from("shipments")
+    .select("*", { count: "exact" })
+    .eq("organization_id", organizationId);
 
-    if (filters.status && filters.status !== "all") {
-      query = query.eq("status", filters.status);
-    }
+  if (filters.status && filters.status !== "all") {
+    query = query.eq("status", filters.status);
+  }
 
-    if (filters.risk && filters.risk !== "all") {
-      query = query.eq("risk_level", filters.risk);
-    }
+  if (filters.risk && filters.risk !== "all") {
+    query = query.eq("risk_level", filters.risk);
+  }
 
-    if (filters.customerId && filters.customerId !== "all") {
-      query = query.eq("customer_id", filters.customerId);
-    }
+  if (filters.customerId && filters.customerId !== "all") {
+    query = query.eq("customer_id", filters.customerId);
+  }
 
-    if (filters.carrierId && filters.carrierId !== "all") {
-      query = query.eq("carrier_id", filters.carrierId);
-    }
+  if (filters.carrierId && filters.carrierId !== "all") {
+    query = query.eq("carrier_id", filters.carrierId);
+  }
 
-    if (filters.dateRange && filters.dateRange !== "all") {
-      const thresholdDays = filters.dateRange === "today" ? 1 : Number.parseInt(filters.dateRange, 10);
-      const threshold = new Date(Date.now() - thresholdDays * 24 * 3600000).toISOString();
-      query = query.gte("eta", threshold);
-    }
+  if (filters.dateRange && filters.dateRange !== "all") {
+    const thresholdDays = filters.dateRange === "today" ? 1 : Number.parseInt(filters.dateRange, 10);
+    const threshold = new Date(Date.now() - thresholdDays * 24 * 3600000).toISOString();
+    query = query.gte("eta", threshold);
+  }
 
-    if (filters.query?.trim()) {
-      const normalized = filters.query.trim();
-      query = query.or(
-        `id.ilike.%${normalized}%,shipment_reference.ilike.%${normalized}%,external_reference.ilike.%${normalized}%`,
-      );
-    }
-
-    const currentPage = filters.page ?? 1;
-    const pageSize = filters.pageSize ?? 12;
-    const start = (currentPage - 1) * pageSize;
-    const end = start + pageSize - 1;
-
-    const { data, error, count } = await query
-      .order("updated_at", { ascending: false })
-      .range(start, end);
-
-    if (error) {
-      throw error;
-    }
-
-    const items = await buildSupabaseShipmentViewModels((data ?? []) as SupabaseRow[], organizationId);
-    const total = count ?? items.length;
-
-    return {
-      items,
-      total,
-      pageCount: Math.max(1, Math.ceil(total / pageSize)),
-      currentPage,
-      filters,
-    };
+  if (filters.query?.trim()) {
+    const normalized = filters.query.trim();
+    query = query.or(
+      `id.ilike.%${normalized}%,shipment_reference.ilike.%${normalized}%,external_reference.ilike.%${normalized}%`,
+    );
   }
 
   const currentPage = filters.page ?? 1;
   const pageSize = filters.pageSize ?? 12;
-  const query = filters.query?.trim().toLowerCase();
-
-  const filtered = demoData.shipments
-    .filter((shipment) => {
-      if (filters.status && filters.status !== "all" && shipment.status !== filters.status) {
-        return false;
-      }
-
-      if (filters.risk && filters.risk !== "all" && shipment.riskLevel !== filters.risk) {
-        return false;
-      }
-
-      if (filters.customerId && filters.customerId !== "all" && shipment.customerId !== filters.customerId) {
-        return false;
-      }
-
-      if (filters.carrierId && filters.carrierId !== "all" && shipment.carrierId !== filters.carrierId) {
-        return false;
-      }
-
-      if (filters.dateRange && filters.dateRange !== "all") {
-        const shipmentDate = new Date(shipment.eta).getTime();
-        const thresholdDays = filters.dateRange === "today" ? 1 : Number.parseInt(filters.dateRange, 10);
-        const threshold = Date.now() - thresholdDays * 24 * 3600000;
-
-        if (shipmentDate < threshold) {
-          return false;
-        }
-      }
-
-      if (query) {
-        return (
-          shipment.id.toLowerCase().includes(query) ||
-          shipment.shipmentReference.toLowerCase().includes(query) ||
-          shipment.externalReference.toLowerCase().includes(query)
-        );
-      }
-
-      return true;
-    })
-    .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
-
-  const total = filtered.length;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const start = (currentPage - 1) * pageSize;
+  const end = start + pageSize - 1;
+
+  const { data, error, count } = await query.order("updated_at", { ascending: false }).range(start, end);
+
+  if (error) {
+    throw error;
+  }
+
+  const items = await buildSupabaseShipmentViewModels((data ?? []) as SupabaseRow[], organizationId);
+  const total = count ?? items.length;
 
   return {
-    items: filtered.slice(start, start + pageSize).map(buildShipmentView),
+    items,
     total,
-    pageCount,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
     currentPage,
     filters,
   };
@@ -445,63 +480,36 @@ export async function getShipmentSearchSuggestions({
   limit?: number;
   includeTrackingTokens?: boolean;
 } = {}): Promise<SearchSuggestion[]> {
-  if (!isDemoMode()) {
-    const { organizationId, supabase } = await getShipmentDataContext();
-    const { data, error } = await supabase
-      .from("shipments")
-      .select("shipment_reference, external_reference, tracking_token, summary")
-      .eq("organization_id", organizationId)
-      .order("shipment_reference")
-      .limit(limit);
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const { data, error } = await supabase
+    .from("shipments")
+    .select("shipment_reference, external_reference, tracking_token, summary")
+    .eq("organization_id", organizationId)
+    .order("shipment_reference")
+    .limit(limit);
 
-    if (error) {
-      throw error;
-    }
-
-    const suggestions = new Map<string, SearchSuggestion>();
-    for (const row of data ?? []) {
-      suggestions.set(String(row.shipment_reference), {
-        value: String(row.shipment_reference),
-        label: `${String(row.external_reference ?? "")} · ${String(row.summary ?? "")}`,
-      });
-
-      if (row.external_reference) {
-        suggestions.set(String(row.external_reference), {
-          value: String(row.external_reference),
-          label: String(row.shipment_reference),
-        });
-      }
-
-      if (includeTrackingTokens && row.tracking_token) {
-        suggestions.set(String(row.tracking_token), {
-          value: String(row.tracking_token),
-          label: String(row.shipment_reference),
-        });
-      }
-    }
-
-    return Array.from(suggestions.values()).slice(0, limit);
+  if (error) {
+    throw error;
   }
 
   const suggestions = new Map<string, SearchSuggestion>();
-
-  for (const shipment of demoData.shipments) {
-    suggestions.set(shipment.shipmentReference, {
-      value: shipment.shipmentReference,
-      label: `${shipment.externalReference} · ${shipment.summary}`,
+  for (const row of data ?? []) {
+    suggestions.set(String(row.shipment_reference), {
+      value: String(row.shipment_reference),
+      label: `${String(row.external_reference ?? "")} · ${String(row.summary ?? "")}`,
     });
 
-    if (shipment.externalReference) {
-      suggestions.set(shipment.externalReference, {
-        value: shipment.externalReference,
-        label: shipment.shipmentReference,
+    if (row.external_reference) {
+      suggestions.set(String(row.external_reference), {
+        value: String(row.external_reference),
+        label: String(row.shipment_reference),
       });
     }
 
     if (includeTrackingTokens) {
-      suggestions.set(shipment.trackingToken, {
-        value: shipment.trackingToken,
-        label: shipment.shipmentReference,
+      suggestions.set(String(row.tracking_token), {
+        value: String(row.tracking_token),
+        label: String(row.shipment_reference),
       });
     }
   }
@@ -510,116 +518,103 @@ export async function getShipmentSearchSuggestions({
 }
 
 export async function getShipmentDetail(shipmentId: string) {
-  if (!isDemoMode()) {
-    const { organizationId, supabase } = await getShipmentDataContext();
-    const { data: shipmentRow, error: shipmentError } = await supabase
-      .from("shipments")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .eq("id", shipmentId)
-      .maybeSingle();
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const { data: shipmentRow, error: shipmentError } = await supabase
+    .from("shipments")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("id", shipmentId)
+    .maybeSingle();
 
-    if (shipmentError) {
-      throw shipmentError;
-    }
-
-    if (!shipmentRow) {
-      return null;
-    }
-
-    const shipmentView = (await buildSupabaseShipmentViewModels([shipmentRow as SupabaseRow], organizationId))[0];
-    const [milestonesResult, eventsResult, exceptionsResult, documentsResult, auditLogsResult] = await Promise.all([
-      supabase
-        .from("shipment_milestones")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .eq("shipment_id", shipmentId)
-        .order("sequence_number"),
-      supabase
-        .from("shipment_events")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .eq("shipment_id", shipmentId)
-        .order("occurred_at", { ascending: false }),
-      supabase
-        .from("exceptions")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .eq("shipment_id", shipmentId)
-        .order("updated_at", { ascending: false }),
-      supabase
-        .from("documents")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .eq("shipment_id", shipmentId)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("audit_logs")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .eq("shipment_id", shipmentId)
-        .order("created_at", { ascending: false }),
-    ]);
-
-    if (milestonesResult.error) throw milestonesResult.error;
-    if (eventsResult.error) throw eventsResult.error;
-    if (exceptionsResult.error) throw exceptionsResult.error;
-    if (documentsResult.error) throw documentsResult.error;
-    if (auditLogsResult.error) throw auditLogsResult.error;
-
-    return {
-      shipment: shipmentView,
-      customer: shipmentView.customer,
-      carrier: shipmentView.carrier,
-      milestones: (milestonesResult.data ?? []).map((row) => mapMilestoneRecord(row as SupabaseRow)),
-      events: (eventsResult.data ?? []).map((row) => mapEventRecord(row as SupabaseRow)),
-      exceptions: (exceptionsResult.data ?? []).map((row) => mapExceptionRecord(row as SupabaseRow)),
-      documents: (documentsResult.data ?? []).map((row) => mapDocumentRecord(row as SupabaseRow)),
-      auditLogs: (auditLogsResult.data ?? []).map((row) => mapAuditLogRecord(row as SupabaseRow)),
-      internalNotes: (eventsResult.data ?? [])
-        .map((row) => mapEventRecord(row as SupabaseRow))
-        .filter((event) => event.eventType === "internal_note"),
-    };
+  if (shipmentError) {
+    throw shipmentError;
   }
 
-  const shipment = demoData.shipments.find((item) => item.id === shipmentId);
-  if (!shipment) {
+  if (!shipmentRow) {
     return null;
   }
 
+  const shipmentView = (await buildSupabaseShipmentViewModels([shipmentRow as SupabaseRow], organizationId))[0];
+  const [milestonesResult, eventsResult, exceptionsResult, documentsResult, auditLogsResult] = await Promise.all([
+    supabase
+      .from("shipment_milestones")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .eq("shipment_id", shipmentId)
+      .order("sequence_number"),
+    supabase
+      .from("shipment_events")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .eq("shipment_id", shipmentId)
+      .order("occurred_at", { ascending: false }),
+    supabase
+      .from("exceptions")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .eq("shipment_id", shipmentId)
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("documents")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .eq("shipment_id", shipmentId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("audit_logs")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .eq("shipment_id", shipmentId)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (milestonesResult.error) throw milestonesResult.error;
+  if (eventsResult.error) throw eventsResult.error;
+  if (exceptionsResult.error) throw exceptionsResult.error;
+  if (documentsResult.error) throw documentsResult.error;
+  if (auditLogsResult.error) throw auditLogsResult.error;
+
   return {
-    shipment: buildShipmentView(shipment),
-    customer: demoData.customers.find((item) => item.id === shipment.customerId)!,
-    carrier: demoData.carriers.find((item) => item.id === shipment.carrierId)!,
-    milestones: demoData.milestones
-      .filter((milestone) => milestone.shipmentId === shipmentId)
-      .sort((left, right) => left.sequence - right.sequence),
-    events: demoData.shipmentEvents
-      .filter((event) => event.shipmentId === shipmentId)
-      .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime()),
-    exceptions: demoData.exceptions
-      .filter((exceptionRecord) => exceptionRecord.shipmentId === shipmentId)
-      .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()),
-    documents: demoData.documents.filter((document) => document.shipmentId === shipmentId),
-    auditLogs: demoData.auditLogs
-      .filter((log) => log.shipmentId === shipmentId)
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()),
-    internalNotes: demoData.shipmentEvents
-      .filter((event) => event.shipmentId === shipmentId && event.eventType === "internal_note")
-      .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime()),
+    shipment: shipmentView,
+    customer: shipmentView.customer,
+    carrier: shipmentView.carrier,
+    milestones: (milestonesResult.data ?? []).map((row) => mapMilestoneRecord(row as SupabaseRow)),
+    events: (eventsResult.data ?? []).map((row) => mapEventRecord(row as SupabaseRow)),
+    exceptions: (exceptionsResult.data ?? []).map((row) => mapExceptionRecord(row as SupabaseRow)),
+    documents: (documentsResult.data ?? []).map((row) => mapDocumentRecord(row as SupabaseRow)),
+    auditLogs: (auditLogsResult.data ?? []).map((row) => mapAuditLogRecord(row as SupabaseRow)),
+    internalNotes: (eventsResult.data ?? [])
+      .map((row) => mapEventRecord(row as SupabaseRow))
+      .filter((event) => event.eventType === "internal_note"),
   };
 }
 
 export async function getExceptionsDashboard() {
-  const openExceptions = demoData.exceptions.filter((exceptionRecord) => exceptionRecord.status !== "resolved");
-  const resolvedDurations = demoData.exceptions
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const [exceptionsResult, shipmentsResult, profilesResult] = await Promise.all([
+    supabase.from("exceptions").select("*").eq("organization_id", organizationId).order("updated_at", { ascending: false }),
+    supabase.from("shipments").select("*").eq("organization_id", organizationId),
+    supabase.from("profiles").select("*").eq("default_organization_id", organizationId),
+  ]);
+
+  if (exceptionsResult.error) throw exceptionsResult.error;
+  if (shipmentsResult.error) throw shipmentsResult.error;
+  if (profilesResult.error) throw profilesResult.error;
+
+  const exceptionRows = (exceptionsResult.data ?? []).map((row) => mapExceptionRecord(row as SupabaseRow));
+  const openExceptions = exceptionRows.filter((exceptionRecord) => exceptionRecord.status !== "resolved");
+  const resolvedDurations = exceptionRows
     .filter((exceptionRecord) => exceptionRecord.resolvedAt)
-    .map((exceptionRecord) => {
-      return (
-        (new Date(exceptionRecord.resolvedAt!).getTime() - new Date(exceptionRecord.openedAt).getTime()) /
-        3600000
-      );
-    });
+    .map(
+      (exceptionRecord) =>
+        (new Date(exceptionRecord.resolvedAt!).getTime() - new Date(exceptionRecord.openedAt).getTime()) / 3600000,
+    );
+  const shipmentViews = await buildSupabaseShipmentViewModels(shipmentsResult.data ?? [], organizationId);
+  const shipmentMap = new Map(shipmentViews.map((shipment) => [shipment.id, shipment]));
+  const profileMap = new Map((profilesResult.data ?? []).map((row) => {
+    const profile = mapProfileRecord(row as SupabaseRow);
+    return [profile.id, profile];
+  }));
 
   return {
     metrics: {
@@ -631,83 +626,82 @@ export async function getExceptionsDashboard() {
     },
     items: openExceptions.map((exceptionRecord) => ({
       ...exceptionRecord,
-      shipment: demoData.shipments.find((shipment) => shipment.id === exceptionRecord.shipmentId)!,
-      customer: demoData.customers.find((customer) => customer.id === exceptionRecord.customerId)!,
-      carrier: demoData.carriers.find((carrier) => carrier.id === exceptionRecord.carrierId)!,
+      shipment: shipmentMap.get(exceptionRecord.shipmentId)!,
+      customer: shipmentMap.get(exceptionRecord.shipmentId)!.customer,
+      carrier: shipmentMap.get(exceptionRecord.shipmentId)!.carrier,
       owner: exceptionRecord.ownerProfileId
-        ? demoData.profiles.find((profile) => profile.id === exceptionRecord.ownerProfileId) ?? null
+        ? profileMap.get(exceptionRecord.ownerProfileId) ?? null
         : null,
     })),
   };
 }
 
 export async function getCustomersData() {
-  if (!isDemoMode()) {
-    const { organizationId, supabase } = await getShipmentDataContext();
-    const [customersResult, shipmentsResult, exceptionsResult] = await Promise.all([
-      supabase.from("customers").select("*").eq("organization_id", organizationId).order("name"),
-      supabase.from("shipments").select("customer_id, status").eq("organization_id", organizationId),
-      supabase
-        .from("exceptions")
-        .select("customer_id, status")
-        .eq("organization_id", organizationId)
-        .neq("status", "resolved"),
-    ]);
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const [customersResult, shipmentsResult, exceptionsResult] = await Promise.all([
+    supabase.from("customers").select("*").eq("organization_id", organizationId).order("name"),
+    supabase.from("shipments").select("customer_id, status").eq("organization_id", organizationId),
+    supabase
+      .from("exceptions")
+      .select("customer_id, status")
+      .eq("organization_id", organizationId)
+      .neq("status", "resolved"),
+  ]);
 
-    if (customersResult.error) throw customersResult.error;
-    if (shipmentsResult.error) throw shipmentsResult.error;
-    if (exceptionsResult.error) throw exceptionsResult.error;
+  if (customersResult.error) throw customersResult.error;
+  if (shipmentsResult.error) throw shipmentsResult.error;
+  if (exceptionsResult.error) throw exceptionsResult.error;
 
-    const shipmentCounts = new Map<string, number>();
-    const delayedCounts = new Map<string, number>();
-    const exceptionCounts = new Map<string, number>();
+  const shipmentCounts = new Map<string, number>();
+  const delayedCounts = new Map<string, number>();
+  const exceptionCounts = new Map<string, number>();
 
-    for (const shipment of shipmentsResult.data ?? []) {
-      const customerId = String(shipment.customer_id);
-      shipmentCounts.set(customerId, (shipmentCounts.get(customerId) ?? 0) + 1);
+  for (const shipment of shipmentsResult.data ?? []) {
+    const customerId = String(shipment.customer_id);
+    shipmentCounts.set(customerId, (shipmentCounts.get(customerId) ?? 0) + 1);
 
-      if (shipment.status === "delayed") {
-        delayedCounts.set(customerId, (delayedCounts.get(customerId) ?? 0) + 1);
-      }
+    if (shipment.status === "delayed") {
+      delayedCounts.set(customerId, (delayedCounts.get(customerId) ?? 0) + 1);
     }
-
-    for (const exceptionRecord of exceptionsResult.data ?? []) {
-      const customerId = String(exceptionRecord.customer_id);
-      exceptionCounts.set(customerId, (exceptionCounts.get(customerId) ?? 0) + 1);
-    }
-
-    return (customersResult.data ?? []).map((customerRow) => {
-      const customer = mapCustomerRecord(customerRow as SupabaseRow);
-      return {
-        ...customer,
-        shipmentCount: shipmentCounts.get(customer.id) ?? 0,
-        delayedCount: delayedCounts.get(customer.id) ?? 0,
-        openExceptions: exceptionCounts.get(customer.id) ?? 0,
-      };
-    });
   }
 
-  return demoData.customers.map((customer) => {
-    const customerShipments = demoData.shipments.filter((shipment) => shipment.customerId === customer.id);
-    const customerExceptions = demoData.exceptions.filter(
-      (exceptionRecord) => exceptionRecord.customerId === customer.id && exceptionRecord.status !== "resolved",
-    );
+  for (const exceptionRecord of exceptionsResult.data ?? []) {
+    const customerId = String(exceptionRecord.customer_id);
+    exceptionCounts.set(customerId, (exceptionCounts.get(customerId) ?? 0) + 1);
+  }
 
+  return (customersResult.data ?? []).map((customerRow) => {
+    const customer = mapCustomerRecord(customerRow as SupabaseRow);
     return {
       ...customer,
-      shipmentCount: customerShipments.length,
-      delayedCount: customerShipments.filter((shipment) => shipment.status === "delayed").length,
-      openExceptions: customerExceptions.length,
+      shipmentCount: shipmentCounts.get(customer.id) ?? 0,
+      delayedCount: delayedCounts.get(customer.id) ?? 0,
+      openExceptions: exceptionCounts.get(customer.id) ?? 0,
     };
   });
 }
 
 export async function getCarriersData() {
-  return demoData.carriers.map((carrier) => {
-    const carrierShipments = demoData.shipments.filter((shipment) => shipment.carrierId === carrier.id);
-    const delivered = carrierShipments.filter((shipment) => shipment.actualDeliveryAt);
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const [carriersResult, shipmentsResult] = await Promise.all([
+    supabase.from("carriers").select("*").eq("organization_id", organizationId).order("name"),
+    supabase
+      .from("shipments")
+      .select("carrier_id, status, actual_delivery_at, promised_delivery_at")
+      .eq("organization_id", organizationId),
+  ]);
+
+  if (carriersResult.error) throw carriersResult.error;
+  if (shipmentsResult.error) throw shipmentsResult.error;
+
+  return (carriersResult.data ?? []).map((carrierRow) => {
+    const carrier = mapCarrierRecord(carrierRow as SupabaseRow);
+    const carrierShipments = (shipmentsResult.data ?? []).filter((shipment) => String(shipment.carrier_id) === carrier.id);
+    const delivered = carrierShipments.filter((shipment) => shipment.actual_delivery_at);
     const onTimeDelivered = delivered.filter(
-      (shipment) => new Date(shipment.actualDeliveryAt!).getTime() <= new Date(shipment.promisedDeliveryAt).getTime(),
+      (shipment) =>
+        new Date(String(shipment.actual_delivery_at)).getTime() <=
+        new Date(String(shipment.promised_delivery_at)).getTime(),
     );
 
     return {
@@ -721,117 +715,112 @@ export async function getCarriersData() {
 
 export async function getReportsData() {
   const metrics = await getDashboardMetrics();
-  const deliveredShipments = demoData.shipments.filter((shipment) => shipment.actualDeliveryAt);
-  const averageDelayDuration =
-    average(
-      deliveredShipments.map((shipment) =>
-        Math.max(
-          0,
-          (new Date(shipment.actualDeliveryAt!).getTime() - new Date(shipment.promisedDeliveryAt).getTime()) /
-            3600000,
-        ),
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const [shipmentsResult, exceptionsResult, carrierBreakdown] = await Promise.all([
+    supabase
+      .from("shipments")
+      .select("created_at, promised_delivery_at, actual_delivery_at")
+      .eq("organization_id", organizationId),
+    supabase.from("exceptions").select("created_at").eq("organization_id", organizationId),
+    getCarriersData(),
+  ]);
+
+  if (shipmentsResult.error) throw shipmentsResult.error;
+  if (exceptionsResult.error) throw exceptionsResult.error;
+
+  const deliveredShipments = (shipmentsResult.data ?? []).filter((shipment) => shipment.actual_delivery_at);
+  const averageDelayDuration = average(
+    deliveredShipments.map((shipment) =>
+      Math.max(
+        0,
+        (new Date(String(shipment.actual_delivery_at)).getTime() -
+          new Date(String(shipment.promised_delivery_at)).getTime()) /
+          3600000,
       ),
-    ) || 0;
+    ),
+  );
+  const carrierPerformance = average(carrierBreakdown.map((carrier) => carrier.onTimeRate));
 
   return {
     metrics: {
       ...metrics,
-      averageDelayDuration,
-      carrierPerformance: demoData.averageCarrierOnTimeRate,
+      averageDelayDuration: averageDelayDuration || 0,
+      carrierPerformance: carrierPerformance || 0,
     },
-    shipmentVolumeTrend: demoData.shipmentVolumeTrend,
-    exceptionTrend: demoData.exceptionTrend,
-    carrierBreakdown: await getCarriersData(),
+    shipmentVolumeTrend: buildTrendPoints((shipmentsResult.data ?? []).map((shipment) => String(shipment.created_at))),
+    exceptionTrend: buildTrendPoints((exceptionsResult.data ?? []).map((exceptionRecord) => String(exceptionRecord.created_at))),
+    carrierBreakdown,
   };
 }
 
 export async function getDocumentsData() {
-  if (!isDemoMode()) {
-    const { organizationId, supabase } = await getShipmentDataContext();
-    const { data, error } = await supabase
-      .from("documents")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .order("created_at", { ascending: false });
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const { data, error } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      throw error;
-    }
-
-    const documentRows = (data ?? []).map((row) => mapDocumentRecord(row as SupabaseRow));
-    const [shipmentsResult, customersResult] = await Promise.all([
-      supabase.from("shipments").select("*").eq("organization_id", organizationId),
-      supabase.from("customers").select("*").eq("organization_id", organizationId),
-    ]);
-
-    if (shipmentsResult.error) throw shipmentsResult.error;
-    if (customersResult.error) throw customersResult.error;
-
-    const shipmentViews = await buildSupabaseShipmentViewModels(shipmentsResult.data ?? [], organizationId);
-    const shipmentMap = new Map(shipmentViews.map((shipment) => [shipment.id, shipment]));
-    const customerMap = new Map(
-      (customersResult.data ?? []).map((row) => {
-        const customer = mapCustomerRecord(row as SupabaseRow);
-        return [customer.id, customer];
-      }),
-    );
-
-    return documentRows
-      .map((document) => ({
-        ...document,
-        shipment: shipmentMap.get(document.shipmentId),
-        customer: customerMap.get(document.customerId),
-      }))
-      .filter(
-        (document): document is DocumentRecord & { shipment: ShipmentView; customer: Customer } =>
-          Boolean(document.shipment && document.customer),
-      );
+  if (error) {
+    throw error;
   }
 
-  return demoData.documents.map((document) => ({
-    ...document,
-    shipment: demoData.shipments.find((shipment) => shipment.id === document.shipmentId)!,
-    customer: demoData.customers.find((customer) => customer.id === document.customerId)!,
-  }));
+  const documentRows = (data ?? []).map((row) => mapDocumentRecord(row as SupabaseRow));
+  const [shipmentsResult, customersResult] = await Promise.all([
+    supabase.from("shipments").select("*").eq("organization_id", organizationId),
+    supabase.from("customers").select("*").eq("organization_id", organizationId),
+  ]);
+
+  if (shipmentsResult.error) throw shipmentsResult.error;
+  if (customersResult.error) throw customersResult.error;
+
+  const shipmentViews = await buildSupabaseShipmentViewModels(shipmentsResult.data ?? [], organizationId);
+  const shipmentMap = new Map(shipmentViews.map((shipment) => [shipment.id, shipment]));
+  const customerMap = new Map(
+    (customersResult.data ?? []).map((row) => {
+      const customer = mapCustomerRecord(row as SupabaseRow);
+      return [customer.id, customer];
+    }),
+  );
+
+  return documentRows
+    .map((document) => ({
+      ...document,
+      shipment: shipmentMap.get(document.shipmentId),
+      customer: customerMap.get(document.customerId),
+    }))
+    .filter(
+      (document): document is DocumentRecord & { shipment: ShipmentView; customer: Customer } =>
+        Boolean(document.shipment && document.customer),
+    );
 }
 
 export async function getNotificationCenter(profileId: string): Promise<NotificationCenter> {
-  if (!isDemoMode()) {
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("profile_id", profileId)
-      .order("created_at", { ascending: false })
-      .limit(20);
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("profile_id", profileId)
+    .order("created_at", { ascending: false })
+    .limit(20);
 
-    if (error) {
-      throw error;
-    }
-
-    const items: NotificationRecord[] = (data ?? []).map((record) => ({
-      id: String(record.id),
-      organizationId: String(record.organization_id),
-      profileId: String(record.profile_id),
-      shipmentId: record.shipment_id ? String(record.shipment_id) : null,
-      exceptionId: record.exception_id ? String(record.exception_id) : null,
-      channel: String(record.channel) as NotificationRecord["channel"],
-      kind: String(record.kind) as NotificationRecord["kind"],
-      title: String(record.title),
-      body: String(record.body ?? ""),
-      readAt: record.read_at ? String(record.read_at) : null,
-      createdAt: String(record.created_at),
-    }));
-
-    return {
-      unreadCount: items.filter((item: NotificationRecord) => !item.readAt).length,
-      items,
-    };
+  if (error) {
+    throw error;
   }
 
-  const items = demoData.notifications
-    .filter((notification) => notification.profileId === profileId)
-    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+  const items: NotificationRecord[] = (data ?? []).map((record) => ({
+    id: String(record.id),
+    organizationId: String(record.organization_id),
+    profileId: String(record.profile_id),
+    shipmentId: record.shipment_id ? String(record.shipment_id) : null,
+    exceptionId: record.exception_id ? String(record.exception_id) : null,
+    channel: String(record.channel) as NotificationRecord["channel"],
+    kind: String(record.notification_kind ?? record.kind) as NotificationRecord["kind"],
+    title: String(record.title),
+    body: String(record.body ?? ""),
+    readAt: record.read_at ? String(record.read_at) : null,
+    createdAt: String(record.created_at),
+  }));
 
   return {
     unreadCount: items.filter((item) => !item.readAt).length,
@@ -840,134 +829,194 @@ export async function getNotificationCenter(profileId: string): Promise<Notifica
 }
 
 export async function getPortalShipment(referenceOrToken: string) {
-  if (!isDemoMode()) {
-    const supabase = createAdminClient();
-    const searchValue = referenceOrToken.trim();
-    const { data: shipmentRow, error: shipmentError } = await supabase
-      .from("shipments")
-      .select("*")
-      .or(`shipment_reference.ilike.${searchValue},tracking_token.ilike.${searchValue}`)
-      .maybeSingle();
+  const supabase = createAdminClient();
+  const searchValue = referenceOrToken.trim();
+  const { data: shipmentRow, error: shipmentError } = await supabase
+    .from("shipments")
+    .select("*")
+    .or(`shipment_reference.ilike.${searchValue},tracking_token.ilike.${searchValue}`)
+    .maybeSingle();
 
-    if (shipmentError) {
-      throw shipmentError;
-    }
-
-    if (!shipmentRow) {
-      return null;
-    }
-
-    const shipment = mapShipmentRecord(shipmentRow as SupabaseRow);
-    const shipmentView = (await buildSupabaseShipmentViewModels([shipmentRow as SupabaseRow], shipment.organizationId))[0];
-    const [customerResult, milestonesResult, eventsResult, documentsResult] = await Promise.all([
-      supabase.from("customers").select("*").eq("id", shipment.customerId).maybeSingle(),
-      supabase
-        .from("shipment_milestones")
-        .select("*")
-        .eq("organization_id", shipment.organizationId)
-        .eq("shipment_id", shipment.id)
-        .order("sequence_number"),
-      supabase
-        .from("shipment_events")
-        .select("*")
-        .eq("organization_id", shipment.organizationId)
-        .eq("shipment_id", shipment.id)
-        .eq("is_customer_visible", true)
-        .order("occurred_at", { ascending: false }),
-      supabase
-        .from("documents")
-        .select("*")
-        .eq("organization_id", shipment.organizationId)
-        .eq("shipment_id", shipment.id)
-        .eq("is_customer_visible", true)
-        .order("created_at", { ascending: false }),
-    ]);
-
-    if (customerResult.error) throw customerResult.error;
-    if (milestonesResult.error) throw milestonesResult.error;
-    if (eventsResult.error) throw eventsResult.error;
-    if (documentsResult.error) throw documentsResult.error;
-
-    return {
-      shipment: shipmentView,
-      customer: customerResult.data ? mapCustomerRecord(customerResult.data as SupabaseRow) : shipmentView.customer,
-      milestones: (milestonesResult.data ?? []).map((row) => mapMilestoneRecord(row as SupabaseRow)),
-      events: (eventsResult.data ?? []).map((row) => mapEventRecord(row as SupabaseRow)),
-      documents: (documentsResult.data ?? []).map((row) => mapDocumentRecord(row as SupabaseRow)),
-    };
+  if (shipmentError) {
+    throw shipmentError;
   }
 
-  const normalized = referenceOrToken.trim().toLowerCase();
-  const shipment = demoData.shipments.find(
-    (item) =>
-      item.shipmentReference.toLowerCase() === normalized || item.trackingToken.toLowerCase() === normalized,
-  );
-
-  if (!shipment) {
+  if (!shipmentRow) {
     return null;
   }
 
+  const shipment = mapShipmentRecord(shipmentRow as SupabaseRow);
+  const shipmentView = (await buildSupabaseShipmentViewModels([shipmentRow as SupabaseRow], shipment.organizationId))[0];
+  const [customerResult, milestonesResult, eventsResult, documentsResult] = await Promise.all([
+    supabase.from("customers").select("*").eq("id", shipment.customerId).maybeSingle(),
+    supabase
+      .from("shipment_milestones")
+      .select("*")
+      .eq("organization_id", shipment.organizationId)
+      .eq("shipment_id", shipment.id)
+      .order("sequence_number"),
+    supabase
+      .from("shipment_events")
+      .select("*")
+      .eq("organization_id", shipment.organizationId)
+      .eq("shipment_id", shipment.id)
+      .eq("is_customer_visible", true)
+      .order("occurred_at", { ascending: false }),
+    supabase
+      .from("documents")
+      .select("*")
+      .eq("organization_id", shipment.organizationId)
+      .eq("shipment_id", shipment.id)
+      .eq("is_customer_visible", true)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (customerResult.error) throw customerResult.error;
+  if (milestonesResult.error) throw milestonesResult.error;
+  if (eventsResult.error) throw eventsResult.error;
+  if (documentsResult.error) throw documentsResult.error;
+
   return {
-    shipment: buildShipmentView(shipment),
-    customer: demoData.customers.find((item) => item.id === shipment.customerId)!,
-    milestones: demoData.milestones.filter((milestone) => milestone.shipmentId === shipment.id),
-    events: demoData.shipmentEvents.filter(
-      (event) => event.shipmentId === shipment.id && event.isCustomerVisible,
-    ),
-    documents: demoData.documents.filter(
-      (document) => document.shipmentId === shipment.id && document.isCustomerVisible,
-    ),
+    shipment: shipmentView,
+    customer: customerResult.data ? mapCustomerRecord(customerResult.data as SupabaseRow) : shipmentView.customer,
+    milestones: (milestonesResult.data ?? []).map((row) => mapMilestoneRecord(row as SupabaseRow)),
+    events: (eventsResult.data ?? []).map((row) => mapEventRecord(row as SupabaseRow)),
+    documents: (documentsResult.data ?? []).map((row) => mapDocumentRecord(row as SupabaseRow)),
   };
 }
 
 export async function getRiskSummary(): Promise<TrendPoint[]> {
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const { data, error } = await supabase.from("shipments").select("risk_level").eq("organization_id", organizationId);
+  if (error) throw error;
+
   return [
-    {
-      label: "Low",
-      value: demoData.shipments.filter((shipment) => shipment.riskLevel === "low").length,
-    },
-    {
-      label: "Medium",
-      value: demoData.shipments.filter((shipment) => shipment.riskLevel === "medium").length,
-    },
-    {
-      label: "High",
-      value: demoData.shipments.filter((shipment) => shipment.riskLevel === "high").length,
-    },
-    {
-      label: "Critical",
-      value: demoData.shipments.filter((shipment) => shipment.riskLevel === "critical").length,
-    },
+    { label: "Low", value: (data ?? []).filter((shipment) => shipment.risk_level === "low").length },
+    { label: "Medium", value: (data ?? []).filter((shipment) => shipment.risk_level === "medium").length },
+    { label: "High", value: (data ?? []).filter((shipment) => shipment.risk_level === "high").length },
+    { label: "Critical", value: (data ?? []).filter((shipment) => shipment.risk_level === "critical").length },
   ];
 }
 
 export async function getOperationalSnapshot() {
-  const openExceptions = demoData.exceptions.filter((exceptionRecord) => exceptionRecord.status !== "resolved");
-  const delayedShipments = demoData.shipments.filter((shipment) => shipment.status === "delayed");
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const [notificationsResult, customersResult, carriersResult, shipmentsResult, exceptionsResult, ordersResult] =
+    await Promise.all([
+      supabase.from("notifications").select("read_at").eq("organization_id", organizationId),
+      supabase.from("customers").select("id", { count: "exact" }).eq("organization_id", organizationId),
+      supabase.from("carriers").select("id", { count: "exact" }).eq("organization_id", organizationId),
+      supabase.from("shipments").select("id, order_id, status").eq("organization_id", organizationId),
+      supabase.from("exceptions").select("*").eq("organization_id", organizationId).neq("status", "resolved"),
+      supabase.from("orders").select("id, value_usd").eq("organization_id", organizationId),
+    ]);
+
+  if (notificationsResult.error) throw notificationsResult.error;
+  if (customersResult.error) throw customersResult.error;
+  if (carriersResult.error) throw carriersResult.error;
+  if (shipmentsResult.error) throw shipmentsResult.error;
+  if (exceptionsResult.error) throw exceptionsResult.error;
+  if (ordersResult.error) throw ordersResult.error;
+
+  const delayedShipments = (shipmentsResult.data ?? []).filter((shipment) => shipment.status === "delayed");
+  const orderValueMap = new Map((ordersResult.data ?? []).map((order) => [String(order.id), Number(order.value_usd ?? 0)]));
 
   return {
-    totalNotifications: demoData.notifications.length,
-    unreadNotifications: demoData.notifications.filter((notification) => !notification.readAt).length,
-    activeCustomers: demoData.customers.length,
-    activeCarriers: demoData.carriers.length,
-    delayedShipmentValue: sum(
-      delayedShipments.map((shipment) => {
-        const order = demoData.orders.find((item) => item.id === shipment.orderId)!;
-        return order.valueUsd;
-      }),
-    ),
-    openExceptions,
+    totalNotifications: (notificationsResult.data ?? []).length,
+    unreadNotifications: (notificationsResult.data ?? []).filter((notification) => !notification.read_at).length,
+    activeCustomers: customersResult.count ?? 0,
+    activeCarriers: carriersResult.count ?? 0,
+    delayedShipmentValue: sum(delayedShipments.map((shipment) => orderValueMap.get(String(shipment.order_id)) ?? 0)),
+    openExceptions: (exceptionsResult.data ?? []).map((row) => mapExceptionRecord(row as SupabaseRow)),
   };
 }
 
 export async function getShipmentMilestones(shipmentId: string): Promise<ShipmentMilestone[]> {
-  return demoData.milestones.filter((milestone) => milestone.shipmentId === shipmentId);
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const { data, error } = await supabase
+    .from("shipment_milestones")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("shipment_id", shipmentId)
+    .order("sequence_number");
+
+  if (error) throw error;
+  return (data ?? []).map((row) => mapMilestoneRecord(row as SupabaseRow));
 }
 
 export async function getUnreadNotifications(profileId: string): Promise<NotificationRecord[]> {
-  return demoData.notifications.filter((notification) => notification.profileId === profileId && !notification.readAt);
+  const center = await getNotificationCenter(profileId);
+  return center.items.filter((notification) => !notification.readAt);
 }
 
 export async function getOpenExceptions(): Promise<ExceptionRecord[]> {
-  return demoData.exceptions.filter((exceptionRecord) => exceptionRecord.status !== "resolved");
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const { data, error } = await supabase
+    .from("exceptions")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .neq("status", "resolved");
+  if (error) throw error;
+  return (data ?? []).map((row) => mapExceptionRecord(row as SupabaseRow));
+}
+
+export async function getShipmentFilterOptions() {
+  const { organizationId, supabase } = await getShipmentDataContext();
+  const [customersResult, carriersResult] = await Promise.all([
+    supabase.from("customers").select("id, name").eq("organization_id", organizationId).order("name"),
+    supabase.from("carriers").select("id, name").eq("organization_id", organizationId).order("name"),
+  ]);
+
+  if (customersResult.error) throw customersResult.error;
+  if (carriersResult.error) throw carriersResult.error;
+
+  return {
+    customers: (customersResult.data ?? []).map((item) => ({ label: String(item.name), value: String(item.id) })),
+    carriers: (carriersResult.data ?? []).map((item) => ({ label: String(item.name), value: String(item.id) })),
+  };
+}
+
+export async function getPortalSampleShipments(limit = 3) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("shipments")
+    .select("id, shipment_reference, tracking_token")
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    shipmentReference: String(row.shipment_reference),
+    trackingToken: String(row.tracking_token),
+  }));
+}
+
+export async function getSettingsData() {
+  const context = await requireAppContext();
+  const organizationId = context.organization.id;
+  const supabase = createAdminClient();
+  const [membersResult, profilesResult, webhooksResult] = await Promise.all([
+    supabase.from("organization_members").select("*").eq("organization_id", organizationId).order("created_at"),
+    supabase.from("profiles").select("*").eq("default_organization_id", organizationId),
+    supabase.from("webhook_endpoints").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
+  ]);
+
+  if (membersResult.error) throw membersResult.error;
+  if (profilesResult.error) throw profilesResult.error;
+  if (webhooksResult.error) throw webhooksResult.error;
+
+  const profileMap = new Map((profilesResult.data ?? []).map((row) => {
+    const profile = mapProfileRecord(row as SupabaseRow);
+    return [profile.id, profile];
+  }));
+
+  return {
+    members: (membersResult.data ?? []).map((row) => {
+      const member = mapOrganizationMemberRecord(row as SupabaseRow);
+      return {
+        ...member,
+        profile: profileMap.get(member.profileId) ?? null,
+      };
+    }),
+    webhookEndpoints: (webhooksResult.data ?? []).map((row) => mapWebhookEndpointRecord(row as SupabaseRow)),
+  };
 }

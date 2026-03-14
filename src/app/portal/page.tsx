@@ -2,8 +2,7 @@ import Link from "next/link";
 
 import { EmptyState } from "@/components/app/empty-state";
 import { PortalSearchForm } from "@/components/portal/portal-search-form";
-import { demoData } from "@/lib/domain/demo-data";
-import { getPortalShipment, getShipmentSearchSuggestions } from "@/lib/domain/queries";
+import { getPortalSampleShipments, getPortalShipment, getShipmentSearchSuggestions } from "@/lib/domain/queries";
 
 type SearchProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -12,9 +11,10 @@ type SearchProps = {
 export default async function PortalHomePage({ searchParams }: SearchProps) {
   const params = await searchParams;
   const query = typeof params.q === "string" ? params.q : "";
-  const [match, searchSuggestions] = await Promise.all([
+  const [match, searchSuggestions, sampleShipments] = await Promise.all([
     query ? getPortalShipment(query) : Promise.resolve(null),
     getShipmentSearchSuggestions({ limit: 12, includeTrackingTokens: true }),
+    getPortalSampleShipments(3),
   ]);
 
   return (
@@ -61,7 +61,7 @@ export default async function PortalHomePage({ searchParams }: SearchProps) {
         )
       ) : (
         <section className="grid gap-4 md:grid-cols-3">
-          {demoData.shipments.slice(0, 3).map((shipment) => (
+          {sampleShipments.map((shipment) => (
             <article
               key={shipment.id}
               className="rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-5"

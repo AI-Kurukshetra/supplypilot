@@ -4,10 +4,10 @@ on conflict (id) do nothing;
 
 insert into public.profiles (id, auth_user_id, default_organization_id, email, full_name, title, notification_preferences)
 values
-  ('10000000-0000-4000-8000-000000000001', null, '00000000-0000-4000-8000-000000000001', 'avery@supplypilot.demo', 'Avery Morgan', 'Director of Operations', '{"emailExceptionCreated":true,"emailEtaChanged":true,"emailShipmentDelayed":true,"emailMilestoneReached":false}'),
-  ('10000000-0000-4000-8000-000000000002', null, '00000000-0000-4000-8000-000000000001', 'jordan@supplypilot.demo', 'Jordan Patel', 'Operations Manager', '{"emailExceptionCreated":true,"emailEtaChanged":true,"emailShipmentDelayed":true,"emailMilestoneReached":true}'),
-  ('10000000-0000-4000-8000-000000000003', null, '00000000-0000-4000-8000-000000000001', 'casey@supplypilot.demo', 'Casey Nguyen', 'Operations Agent', '{"emailExceptionCreated":true,"emailEtaChanged":false,"emailShipmentDelayed":true,"emailMilestoneReached":false}'),
-  ('10000000-0000-4000-8000-000000000004', null, '00000000-0000-4000-8000-000000000001', 'riley@bluepeakretail.demo', 'Riley Chen', 'Customer Logistics Lead', '{"emailExceptionCreated":true,"emailEtaChanged":true,"emailShipmentDelayed":true,"emailMilestoneReached":true}')
+  ('10000000-0000-4000-8000-000000000001', null, '00000000-0000-4000-8000-000000000001', 'avery@northstarlogistics.example', 'Avery Morgan', 'Director of Operations', '{"emailExceptionCreated":true,"emailEtaChanged":true,"emailShipmentDelayed":true,"emailMilestoneReached":false}'),
+  ('10000000-0000-4000-8000-000000000002', null, '00000000-0000-4000-8000-000000000001', 'jordan@northstarlogistics.example', 'Jordan Patel', 'Operations Manager', '{"emailExceptionCreated":true,"emailEtaChanged":true,"emailShipmentDelayed":true,"emailMilestoneReached":true}'),
+  ('10000000-0000-4000-8000-000000000003', null, '00000000-0000-4000-8000-000000000001', 'casey@northstarlogistics.example', 'Casey Nguyen', 'Operations Agent', '{"emailExceptionCreated":true,"emailEtaChanged":false,"emailShipmentDelayed":true,"emailMilestoneReached":false}'),
+  ('10000000-0000-4000-8000-000000000004', null, '00000000-0000-4000-8000-000000000001', 'riley@bluepeakretail.example', 'Riley Chen', 'Customer Logistics Lead', '{"emailExceptionCreated":true,"emailEtaChanged":true,"emailShipmentDelayed":true,"emailMilestoneReached":true}')
 on conflict (id) do nothing;
 
 insert into public.customers (id, organization_id, name, code, segment, contact_name, contact_email)
@@ -122,7 +122,7 @@ select
   ])[(source_orders.rn % 4) + 1],
   'SP-' || (20260300 + source_orders.rn),
   'BK-' || (54000 + source_orders.rn),
-  'trk_demo_' || source_orders.rn,
+  'trk_sp_' || source_orders.rn,
   (array['ftl', 'ltl', 'air', 'ocean'])[(source_orders.rn % 4) + 1],
   case
     when source_orders.rn % 5 = 0 then 'delivered'::public.shipment_status
@@ -141,7 +141,7 @@ select
   case when source_orders.rn % 5 = 0 then source_orders.promised_delivery_at - interval '1 hour' else null end,
   timezone('utc', now()) - (((source_orders.rn % 12) + 1) || ' hours')::interval,
   timezone('utc', now()) - (((source_orders.rn % 18) + 2) || ' hours')::interval,
-  'Seeded operational shipment for dashboard and exception demos.'
+  'Seeded operational shipment for dashboard and exception workflows.'
 from source_orders
 where not exists (
   select 1

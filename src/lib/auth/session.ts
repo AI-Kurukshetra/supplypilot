@@ -2,14 +2,12 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { resolveIdentityByAuthUserId } from "@/lib/auth/identity";
-import { demoData } from "@/lib/domain/demo-data";
 import { getNotificationCenter } from "@/lib/domain/queries";
 import type { NotificationCenter, Organization, OrganizationMember, Profile } from "@/lib/domain/types";
-import { isDemoMode } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 type AppContext = {
-  mode: "demo" | "supabase";
+  mode: "supabase";
   organization: Organization;
   profile: Profile;
   member: OrganizationMember;
@@ -17,20 +15,6 @@ type AppContext = {
 };
 
 export const getAppContext = cache(async (): Promise<AppContext | null> => {
-  if (isDemoMode()) {
-    const profile = demoData.profiles[0];
-    const member = demoData.members[0];
-    const notifications = await getNotificationCenter(profile.id);
-
-    return {
-      mode: "demo" as const,
-      organization: demoData.organization,
-      profile,
-      member,
-      notifications,
-    };
-  }
-
   try {
     const supabase = await createClient();
     const {
@@ -56,20 +40,6 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
       notifications,
     };
   } catch {
-    if (isDemoMode()) {
-      const profile = demoData.profiles[0];
-      const member = demoData.members[0];
-      const notifications = await getNotificationCenter(profile.id);
-
-      return {
-        mode: "demo" as const,
-        organization: demoData.organization,
-        profile,
-        member,
-        notifications,
-      };
-    }
-
     return null;
   }
 });

@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 
 import { resolveIdentityByAuthUserId } from "@/lib/auth/identity";
-import { isDemoMode } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 function getValue(formData: FormData, key: string) {
@@ -12,10 +11,6 @@ function getValue(formData: FormData, key: string) {
 }
 
 export async function signInAction(formData: FormData) {
-  if (isDemoMode()) {
-    redirect("/app");
-  }
-
   const email = getValue(formData, "email");
   const password = getValue(formData, "password");
   const supabase = await createClient();
@@ -29,10 +24,6 @@ export async function signInAction(formData: FormData) {
 }
 
 export async function signUpAction(formData: FormData) {
-  if (isDemoMode()) {
-    redirect("/onboarding");
-  }
-
   const email = getValue(formData, "email");
   const password = getValue(formData, "password");
   const fullName = getValue(formData, "fullName");
@@ -70,19 +61,13 @@ export async function signUpAction(formData: FormData) {
 }
 
 export async function signOutAction() {
-  if (!isDemoMode()) {
-    const supabase = await createClient();
-    await supabase.auth.signOut();
-  }
+  const supabase = await createClient();
+  await supabase.auth.signOut();
 
   redirect("/sign-in");
 }
 
 export async function completeOnboardingAction(formData: FormData) {
-  if (isDemoMode()) {
-    redirect("/app");
-  }
-
   const organizationName = getValue(formData, "organizationName");
   const organizationSlug = getValue(formData, "organizationSlug");
   const supabase = await createClient();

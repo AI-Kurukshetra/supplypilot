@@ -30,7 +30,7 @@ export default async function DashboardPage() {
           label="Total shipments"
           value={formatNumber(dashboardData.metrics.totalShipments)}
           delta="+8.2%"
-          hint="Across active, delayed, and delivered loads in the current demo window."
+          hint="Across active, delayed, and delivered loads in the current operating window."
         />
         <KpiCard
           label="On-time delivery"

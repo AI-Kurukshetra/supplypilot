@@ -133,12 +133,6 @@ export async function requireCrudManagerContext() {
     throw new Error("You do not have permission to manage CRUD data.");
   }
 
-  if (context.mode !== "supabase") {
-    throw new Error(
-      "CRUD writes are unavailable in demo mode. Restart the app with SUPPLYPILOT_DEMO_MODE=false and sign in again.",
-    );
-  }
-
   if (!uuidPattern.test(context.organization.id)) {
     throw new Error(
       "Invalid organization context detected. Restart the app and sign in again before creating records.",

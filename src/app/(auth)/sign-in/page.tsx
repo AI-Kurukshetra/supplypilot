@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { signInAction } from "@/app/(auth)/actions";
-import { isDemoMode } from "@/lib/env";
 
 type SearchProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -10,7 +9,6 @@ type SearchProps = {
 export default async function SignInPage({ searchParams }: SearchProps) {
   const params = await searchParams;
   const error = typeof params.error === "string" ? params.error : null;
-  const demoMode = isDemoMode();
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-6 py-10 sm:px-8">
@@ -22,12 +20,12 @@ export default async function SignInPage({ searchParams }: SearchProps) {
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-8 text-[var(--muted)]">
             The authenticated product experience is the primary surface. Sign in to the operations
-            console or use demo mode to explore the control tower immediately.
+            console to manage shipments, customers, exceptions, documents, and notifications.
           </p>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
             {[
-              ["50+", "demo shipments"],
+              ["50+", "tracked shipments"],
               ["4", "role types"],
               ["1", "customer-safe portal"],
             ].map(([value, label]) => (
@@ -48,9 +46,7 @@ export default async function SignInPage({ searchParams }: SearchProps) {
             Access the operations workspace
           </h2>
           <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            {demoMode
-              ? "Demo mode is active. Any credentials will route directly into the seeded workspace."
-              : "Use your organization credentials to continue."}
+            Use your organization credentials to continue.
           </p>
 
           {error ? (
@@ -68,7 +64,6 @@ export default async function SignInPage({ searchParams }: SearchProps) {
               <input
                 name="email"
                 type="email"
-                defaultValue={demoMode ? "avery@supplypilot.demo" : ""}
                 className="h-12 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 text-sm outline-none transition focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--ring)]/20"
                 required
               />
@@ -78,7 +73,6 @@ export default async function SignInPage({ searchParams }: SearchProps) {
               <input
                 name="password"
                 type="password"
-                defaultValue={demoMode ? "demo-password" : ""}
                 className="h-12 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 text-sm outline-none transition focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--ring)]/20"
                 required
               />
@@ -87,7 +81,7 @@ export default async function SignInPage({ searchParams }: SearchProps) {
               type="submit"
               className="btn btn-primary btn-full min-h-12"
             >
-              {demoMode ? "Enter demo workspace" : "Sign in"}
+              Sign in
             </button>
           </form>
 
