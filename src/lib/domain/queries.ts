@@ -641,6 +641,51 @@ export async function getExceptionsDashboard() {
 }
 
 export async function getCustomersData() {
+  if (!isDemoMode()) {
+    const { organizationId, supabase } = await getShipmentDataContext();
+    const [customersResult, shipmentsResult, exceptionsResult] = await Promise.all([
+      supabase.from("customers").select("*").eq("organization_id", organizationId).order("name"),
+      supabase.from("shipments").select("customer_id, status").eq("organization_id", organizationId),
+      supabase
+        .from("exceptions")
+        .select("customer_id, status")
+        .eq("organization_id", organizationId)
+        .neq("status", "resolved"),
+    ]);
+
+    if (customersResult.error) throw customersResult.error;
+    if (shipmentsResult.error) throw shipmentsResult.error;
+    if (exceptionsResult.error) throw exceptionsResult.error;
+
+    const shipmentCounts = new Map<string, number>();
+    const delayedCounts = new Map<string, number>();
+    const exceptionCounts = new Map<string, number>();
+
+    for (const shipment of shipmentsResult.data ?? []) {
+      const customerId = String(shipment.customer_id);
+      shipmentCounts.set(customerId, (shipmentCounts.get(customerId) ?? 0) + 1);
+
+      if (shipment.status === "delayed") {
+        delayedCounts.set(customerId, (delayedCounts.get(customerId) ?? 0) + 1);
+      }
+    }
+
+    for (const exceptionRecord of exceptionsResult.data ?? []) {
+      const customerId = String(exceptionRecord.customer_id);
+      exceptionCounts.set(customerId, (exceptionCounts.get(customerId) ?? 0) + 1);
+    }
+
+    return (customersResult.data ?? []).map((customerRow) => {
+      const customer = mapCustomerRecord(customerRow as SupabaseRow);
+      return {
+        ...customer,
+        shipmentCount: shipmentCounts.get(customer.id) ?? 0,
+        delayedCount: delayedCounts.get(customer.id) ?? 0,
+        openExceptions: exceptionCounts.get(customer.id) ?? 0,
+      };
+    });
+  }
+
   return demoData.customers.map((customer) => {
     const customerShipments = demoData.shipments.filter((shipment) => shipment.customerId === customer.id);
     const customerExceptions = demoData.exceptions.filter(

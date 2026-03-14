@@ -280,10 +280,16 @@ export async function createCrudRecord(entityName: CrudEntityName, formData: For
   const entity = getCrudEntityConfig(entityName);
   const supabase = createAdminClient();
 
-  const { error } = await supabase.from(entity.table).insert(payload);
+  const { data, error } = await supabase
+    .from(entity.table)
+    .insert(payload)
+    .select("*")
+    .single();
   if (error) {
     throw error;
   }
+
+  return (data as CrudRecord) ?? null;
 }
 
 async function assertRecordOwnership(entityName: CrudEntityName, recordId: string, organizationId: string) {
