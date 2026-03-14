@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { PageHeader } from "@/components/app/page-header";
 import { RoleBadge } from "@/components/app/status-badge";
 import { demoData } from "@/lib/domain/demo-data";
@@ -5,6 +7,7 @@ import { requireAppContext } from "@/lib/auth/session";
 
 export default async function SettingsPage() {
   const context = await requireAppContext();
+  const canManageData = context.member.role === "org_admin" || context.member.role === "ops_manager";
 
   return (
     <>
@@ -12,6 +15,16 @@ export default async function SettingsPage() {
         eyebrow="Settings"
         title="Organization settings"
         description="Manage member roles, webhook endpoints, notification defaults, and deployment-facing configuration."
+        actions={
+          canManageData ? (
+            <Link
+              href="/app/settings/data"
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-[var(--foreground)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
+            >
+              Open data workspace
+            </Link>
+          ) : null
+        }
       />
 
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
