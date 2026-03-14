@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import type { CrudEntityName } from "@/lib/crud/config";
 import { createCrudRecord, deleteCrudRecord, updateCrudRecord } from "@/lib/crud/service";
+import { getErrorMessage } from "@/lib/errors";
 
 function buildRedirectUrl(entityName: CrudEntityName, status: "success" | "error", message: string) {
   const params = new URLSearchParams({
@@ -21,7 +22,7 @@ export async function createCrudRecordAction(entityName: CrudEntityName, formDat
     await createCrudRecord(entityName, formData);
     revalidatePath("/app/settings/data");
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to create record.";
+    const message = getErrorMessage(error, "Unable to create record.");
     redirect(buildRedirectUrl(entityName, "error", message));
   }
 
@@ -37,7 +38,7 @@ export async function updateCrudRecordAction(
     await updateCrudRecord(entityName, recordId, formData);
     revalidatePath("/app/settings/data");
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to update record.";
+    const message = getErrorMessage(error, "Unable to update record.");
     redirect(buildRedirectUrl(entityName, "error", message));
   }
 
@@ -49,7 +50,7 @@ export async function deleteCrudRecordAction(entityName: CrudEntityName, recordI
     await deleteCrudRecord(entityName, recordId);
     revalidatePath("/app/settings/data");
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to delete record.";
+    const message = getErrorMessage(error, "Unable to delete record.");
     redirect(buildRedirectUrl(entityName, "error", message));
   }
 

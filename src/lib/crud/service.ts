@@ -5,6 +5,7 @@ import {
   crudEntityOrder,
   getCrudEntityConfig,
 } from "@/lib/crud/config";
+import { getErrorMessage } from "@/lib/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type CrudOptionSet = {
@@ -92,7 +93,7 @@ async function validateCustomerPayload(
 
     const { data: existingCode, error: codeError } = await codeQuery.maybeSingle();
     if (codeError) {
-      throw codeError;
+      throw new Error(getErrorMessage(codeError, "Unable to validate customer code."));
     }
 
     if (existingCode) {
@@ -113,7 +114,7 @@ async function validateCustomerPayload(
 
     const { data: existingEmail, error: emailError } = await emailQuery.maybeSingle();
     if (emailError) {
-      throw emailError;
+      throw new Error(getErrorMessage(emailError, "Unable to validate customer email."));
     }
 
     if (existingEmail) {

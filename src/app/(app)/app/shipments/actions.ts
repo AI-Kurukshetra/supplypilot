@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createCrudRecord, deleteCrudRecord, updateCrudRecord } from "@/lib/crud/service";
+import { getErrorMessage } from "@/lib/errors";
 
 function redirectToList(status: "success" | "error", message: string) {
   const params = new URLSearchParams({ status, message });
@@ -21,7 +22,7 @@ export async function createShipmentAction(formData: FormData) {
     revalidatePath("/app/shipments");
     revalidatePath("/app");
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to create shipment.";
+    const message = getErrorMessage(error, "Unable to create shipment.");
     redirect(`/app/shipments/new?status=error&message=${encodeURIComponent(message)}`);
   }
 
@@ -35,7 +36,7 @@ export async function updateShipmentAction(shipmentId: string, formData: FormDat
     revalidatePath(`/app/shipments/${shipmentId}`);
     revalidatePath("/app");
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to update shipment.";
+    const message = getErrorMessage(error, "Unable to update shipment.");
     redirect(`/app/shipments/${shipmentId}/edit?status=error&message=${encodeURIComponent(message)}`);
   }
 
@@ -48,7 +49,7 @@ export async function deleteShipmentAction(shipmentId: string) {
     revalidatePath("/app/shipments");
     revalidatePath("/app");
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to delete shipment.";
+    const message = getErrorMessage(error, "Unable to delete shipment.");
     redirectToDetail(shipmentId, "error", message);
   }
 

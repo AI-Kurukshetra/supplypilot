@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireAppContext } from "@/lib/auth/session";
 import { createCrudRecord, deleteCrudRecord, updateCrudRecord } from "@/lib/crud/service";
+import { getErrorMessage } from "@/lib/errors";
 import { sendCustomerCreatedEmail } from "@/lib/notifications/customer-email";
 
 function redirectToList(status: "success" | "error", message: string) {
@@ -47,7 +48,7 @@ export async function createCustomerAction(formData: FormData) {
       }
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to create customer.";
+    const message = getErrorMessage(error, "Unable to create customer.");
     redirect(`/app/customers/new?status=error&message=${encodeURIComponent(message)}`);
   }
 
@@ -60,7 +61,7 @@ export async function updateCustomerAction(customerId: string, formData: FormDat
     revalidatePath("/app/customers");
     revalidatePath("/app");
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to update customer.";
+    const message = getErrorMessage(error, "Unable to update customer.");
     redirectToEdit(customerId, "error", message);
   }
 
@@ -73,7 +74,7 @@ export async function deleteCustomerAction(customerId: string) {
     revalidatePath("/app/customers");
     revalidatePath("/app");
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to delete customer.";
+    const message = getErrorMessage(error, "Unable to delete customer.");
     redirectToList("error", message);
   }
 
