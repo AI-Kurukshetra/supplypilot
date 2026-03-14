@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { PageHeader } from "@/components/app/page-header";
 import { getDocumentsData } from "@/lib/domain/queries";
 import { formatDateTime, formatNumber } from "@/lib/utils";
@@ -24,6 +26,7 @@ export default async function DocumentsPage() {
                 <th className="pb-3 font-mono">Visibility</th>
                 <th className="pb-3 font-mono">Size</th>
                 <th className="pb-3 font-mono">Uploaded</th>
+                <th className="pb-3 font-mono">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -41,6 +44,16 @@ export default async function DocumentsPage() {
                   </td>
                   <td className="py-4 text-sm text-[var(--muted)]">{formatNumber(document.fileSizeBytes)} B</td>
                   <td className="py-4 text-sm text-[var(--muted)]">{formatDateTime(document.createdAt)}</td>
+                  <td className="py-4 text-sm">
+                    <Link
+                      href={`/api/documents/${document.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-strong)] px-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface)]"
+                    >
+                      View PDF
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

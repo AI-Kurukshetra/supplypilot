@@ -45,9 +45,12 @@ export default async function PortalHomePage({ searchParams }: SearchProps) {
             <p className="mt-3 text-sm text-[var(--muted)]">{match.customer.name}</p>
             <Link
               href={`/portal/${match.shipment.shipmentReference}`}
-              className="mt-5 inline-flex h-11 items-center justify-center rounded-2xl bg-[var(--foreground)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
+              className="mt-5 inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border border-[var(--border-strong)] bg-[color:var(--surface-strong)] px-4 text-sm font-semibold whitespace-nowrap text-[color:var(--foreground)] shadow-[0_12px_30px_-18px_var(--shadow-color)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
             >
-              Open tracking page
+              <span>Open tracking page</span>
+              <span aria-hidden="true" className="text-base leading-none">
+                -&gt;
+              </span>
             </Link>
           </section>
         ) : (

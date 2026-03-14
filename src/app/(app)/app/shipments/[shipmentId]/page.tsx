@@ -192,7 +192,17 @@ export default async function ShipmentDetailPage({ params, searchParams }: Shipm
                       <p className="text-sm font-semibold text-[var(--foreground)]">{document.fileName}</p>
                       <p className="mt-1 text-xs text-[var(--muted)]">{document.type.toUpperCase()}</p>
                     </div>
-                    <p className="text-xs text-[var(--muted)]">{formatDateTime(document.createdAt)}</p>
+                    <div className="text-right">
+                      <p className="text-xs text-[var(--muted)]">{formatDateTime(document.createdAt)}</p>
+                      <Link
+                        href={`/api/documents/${document.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex h-9 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-xs font-semibold text-[var(--foreground)] transition hover:bg-[var(--background)]"
+                      >
+                        View PDF
+                      </Link>
+                    </div>
                   </div>
                 </article>
               ))}

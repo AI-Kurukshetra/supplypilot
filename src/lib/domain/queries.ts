@@ -745,6 +745,48 @@ export async function getReportsData() {
 }
 
 export async function getDocumentsData() {
+  if (!isDemoMode()) {
+    const { organizationId, supabase } = await getShipmentDataContext();
+    const { data, error } = await supabase
+      .from("documents")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    const documentRows = (data ?? []).map((row) => mapDocumentRecord(row as SupabaseRow));
+    const [shipmentsResult, customersResult] = await Promise.all([
+      supabase.from("shipments").select("*").eq("organization_id", organizationId),
+      supabase.from("customers").select("*").eq("organization_id", organizationId),
+    ]);
+
+    if (shipmentsResult.error) throw shipmentsResult.error;
+    if (customersResult.error) throw customersResult.error;
+
+    const shipmentViews = await buildSupabaseShipmentViewModels(shipmentsResult.data ?? [], organizationId);
+    const shipmentMap = new Map(shipmentViews.map((shipment) => [shipment.id, shipment]));
+    const customerMap = new Map(
+      (customersResult.data ?? []).map((row) => {
+        const customer = mapCustomerRecord(row as SupabaseRow);
+        return [customer.id, customer];
+      }),
+    );
+
+    return documentRows
+      .map((document) => ({
+        ...document,
+        shipment: shipmentMap.get(document.shipmentId),
+        customer: customerMap.get(document.customerId),
+      }))
+      .filter(
+        (document): document is DocumentRecord & { shipment: ShipmentView; customer: Customer } =>
+          Boolean(document.shipment && document.customer),
+      );
+  }
+
   return demoData.documents.map((document) => ({
     ...document,
     shipment: demoData.shipments.find((shipment) => shipment.id === document.shipmentId)!,
@@ -764,6 +806,63 @@ export async function getNotificationCenter(profileId: string) {
 }
 
 export async function getPortalShipment(referenceOrToken: string) {
+  if (!isDemoMode()) {
+    const supabase = createAdminClient();
+    const searchValue = referenceOrToken.trim();
+    const { data: shipmentRow, error: shipmentError } = await supabase
+      .from("shipments")
+      .select("*")
+      .or(`shipment_reference.ilike.${searchValue},tracking_token.ilike.${searchValue}`)
+      .maybeSingle();
+
+    if (shipmentError) {
+      throw shipmentError;
+    }
+
+    if (!shipmentRow) {
+      return null;
+    }
+
+    const shipment = mapShipmentRecord(shipmentRow as SupabaseRow);
+    const shipmentView = (await buildSupabaseShipmentViewModels([shipmentRow as SupabaseRow], shipment.organizationId))[0];
+    const [customerResult, milestonesResult, eventsResult, documentsResult] = await Promise.all([
+      supabase.from("customers").select("*").eq("id", shipment.customerId).maybeSingle(),
+      supabase
+        .from("shipment_milestones")
+        .select("*")
+        .eq("organization_id", shipment.organizationId)
+        .eq("shipment_id", shipment.id)
+        .order("sequence_number"),
+      supabase
+        .from("shipment_events")
+        .select("*")
+        .eq("organization_id", shipment.organizationId)
+        .eq("shipment_id", shipment.id)
+        .eq("is_customer_visible", true)
+        .order("occurred_at", { ascending: false }),
+      supabase
+        .from("documents")
+        .select("*")
+        .eq("organization_id", shipment.organizationId)
+        .eq("shipment_id", shipment.id)
+        .eq("is_customer_visible", true)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    if (customerResult.error) throw customerResult.error;
+    if (milestonesResult.error) throw milestonesResult.error;
+    if (eventsResult.error) throw eventsResult.error;
+    if (documentsResult.error) throw documentsResult.error;
+
+    return {
+      shipment: shipmentView,
+      customer: customerResult.data ? mapCustomerRecord(customerResult.data as SupabaseRow) : shipmentView.customer,
+      milestones: (milestonesResult.data ?? []).map((row) => mapMilestoneRecord(row as SupabaseRow)),
+      events: (eventsResult.data ?? []).map((row) => mapEventRecord(row as SupabaseRow)),
+      documents: (documentsResult.data ?? []).map((row) => mapDocumentRecord(row as SupabaseRow)),
+    };
+  }
+
   const normalized = referenceOrToken.trim().toLowerCase();
   const shipment = demoData.shipments.find(
     (item) =>

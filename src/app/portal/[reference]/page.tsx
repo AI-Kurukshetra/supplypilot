@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { EventFeed, MilestoneTimeline } from "@/components/app/timeline";
@@ -72,6 +73,14 @@ export default async function PortalShipmentPage({ params }: PortalShipmentProps
             >
               <p className="text-sm font-semibold text-[var(--foreground)]">{document.fileName}</p>
               <p className="mt-2 text-xs uppercase text-[var(--muted)]">{document.type}</p>
+              <Link
+                href={`/api/portal-documents/${document.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background)]"
+              >
+                View PDF
+              </Link>
             </article>
           ))}
         </div>
